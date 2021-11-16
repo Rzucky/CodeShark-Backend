@@ -2,18 +2,23 @@ from flask import Flask, request
 from flask_restful import Api
 
 import psycopg2
+import hashlib
 
-from classes import Korisnik 
+from classes import Korisnik
+import codeshark_config as cfg
 
 app = Flask(__name__)
 api = Api(app)
 
 
 def connect_to_db():
-	conn = psycopg2.connect(host="161.97.182.243", database="codeshark", user="codeshark_user", password="kmice")
+	#conn = psycopg2.connect(host="161.97.182.243", database="codeshark", user="codeshark_user", password="kmice")
+	conn = psycopg2.connect(host		= cfg.get_config("host"),
+							database	= cfg.get_config("database"),
+							user		= cfg.get_config("user"),
+							password	= cfg.get_config("password"))
 	cursor = conn.cursor()
 	return conn, cursor
-
 
 # checking for taken username and email
 def check_if_user_exists(cursor, username, email):
@@ -36,8 +41,8 @@ def get_user(cursor, korisnickoime):
 	user = Korisnik(*resp)
 	return user
 
-
-#def pass_hashing()
+def hash_password(plainpass):
+	return hashlib.sha256(plainpass.encode('utf-8')).hexdigest()
 
 
 @app.route('/login', methods=['POST'])
@@ -50,10 +55,10 @@ def login():
 
 			user = get_user(cursor, data["korisnickoime"])
 
-			user_existance = check_if_user_exists(cursor, user.korisnickoime, user.email)
+			user_existance = check_if_user_exists(cursor, user.korisnicko_ime, user.email)
 			if user_existance:
 				#TODO hashing password
-				cursor.execute("""SELECT * from korisnik WHERE korisnickoime = %s AND lozinka = %s""", (data["korisnickoime"],  data["lozinka"],))
+				cursor.execute("""SELECT * from korisnik WHERE korisnickoime = %s AND lozinka = %s""", (data["korisnickoime"],  hash_password(data["lozinka"]),))
 				db_response = cursor.fetchone()
 
 				if db_response is not None:
@@ -74,20 +79,20 @@ def register():
 		data = request.json
 		print(data)
 
-		user = Korisnik(data["korisnickoime"], data["slikaprofila"], data["lozinka"], data["ime"], data["prezime"], data["email"], data["titula"], data["nivouprava"])
+		user = Korisnik(data["korisnickoime"], data["slikaprofila"], hash_password(data["lozinka"]), data["ime"], data["prezime"], data["email"], data["titula"], data["nivouprava"])
 		print(f"user: {user}")
 		output = user.calc_successfully_solved(cursor)
 		print(f"output: {output}")
 
 
-		user_existance, error = check_if_user_exists(cursor, user.korisnickoime, user.email)
+		user_existance, error = check_if_user_exists(cursor, user.korisnicko_ime, user.email)
 		if user_existance:
 			return {"error": error}, 400
 
 		cursor.execute("""INSERT INTO korisnik
 									(korisnickoime, slikaprofila, lozinka, ime, prezime, email, titula, nivouprava)
 						 VALUES (%s, %s, %s, %s, %s, %s, %s, %s);""",
-						 (user.korisnickoime, user.slikaprofila, user.lozinka, user.ime, user.prezime, user.email, user.titula, user.nivouprava))
+						 (user.korisnicko_ime, user.slika_profila, user.lozinka, user.ime, user.prezime, user.email, user.titula, user.nivou_prava))
 		conn.commit()
 
 		return {"data": "successfully registered user"}, 200
@@ -96,4 +101,5 @@ def register():
 		return {"error": "not POST requst"}, 400
 
 if __name__  == "__main__":
+	cfg.load_config()
 	app.run(debug=True)
