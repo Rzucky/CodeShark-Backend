@@ -1,9 +1,9 @@
 from flask import Flask, request
-from flask_restful import Api, Resource
+from flask_restful import Api
 
-#import random
 import psycopg2
 
+from classes import Korisnik 
 
 app = Flask(__name__)
 api = Api(app)
@@ -15,39 +15,58 @@ def connect_to_db():
     return conn, cursor
 
 
-# checking for taken username
-def check_if_user_exists(cursor, username):
+# checking for taken username and email
+def check_if_user_exists(cursor, username, email):
+    cursor.execute("SELECT * FROM korisnik WHERE email = %s;", (email,))
+    db_response = cursor.fetchone()
+    if db_response is not None:
+        return True, "email already in use"
+
     cursor.execute("SELECT * FROM korisnik WHERE korisnickoIme = %s;", (username,))
     db_response = cursor.fetchone()
-    print(db_response)
-    if db_response is None:
-        return False
+    if db_response is not None:
+        return True, "username taken"
     
-    return True
+    return False, None
 
+
+def get_user(cursor, korisnickoime):
+    cursor.execute("SELECT * FROM korisnik WHERE korisnickoime = %s;", (korisnickoime,))
+    resp = cursor.fetchone()[1:]
+    print(resp)
+    user = Korisnik(*resp)
+    return user
+
+
+#def pass_hashing()
 
 
 @app.route('/login', methods=['POST'])
 def login():
-    _, cursor = connect_to_db()
-    if request.method == 'POST':
-        data = request.json
+
+    conn, cursor = connect_to_db()
+    with conn, cursor:
+        if request.method == 'POST':
+            data = request.json
+
+            user = get_user(cursor, data["korisnickoime"])
+
         
-        user_existance = check_if_user_exists(cursor, data["korisnickoime"])
-        if user_existance:
-            #TODO hashing password
-            cursor.execute("""SELECT * from korisnik WHERE korisnickoime = %s AND lozinka = %s""", (data["korisnickoime"],  data["lozinka"],))
-            db_response = cursor.fetchone()
+            user_existance = check_if_user_exists(cursor, user.korisnickoime, user.email)
+            if user_existance:
+                #TODO hashing password
+                cursor.execute("""SELECT * from korisnik WHERE korisnickoime = %s AND lozinka = %s""", (data["korisnickoime"],  data["lozinka"],))
+                db_response = cursor.fetchone()
 
-            if db_response is not None:
-                return {"data": "successfully logged in"}, 200
-            
-            return {"error": "wrong password"}, 400
+                if db_response is not None:
+                    return {"data": "successfully logged in"}, 200
+                
+                return {"error": "wrong password"}, 400
 
-        return {"error": "user doesn't exist or wrong username"}, 400
+            return {"error": "user doesn't exist or wrong username"}, 400
 
-            
-    return {"error": "not POST requst"}, 400
+        
+        return {"error": "not POST requst"}, 400
 
 
 @app.route('/register', methods=['POST'])
@@ -58,15 +77,21 @@ def register():
         data = request.json
         print(data)
 
-        user_existance = check_if_user_exists(cursor, data["korisnickoime"])
+        user = Korisnik(data["korisnickoime"], data["slikaprofila"], data["lozinka"], data["ime"], data["prezime"], data["email"], data["titula"], data["nivouprava"])
+        print(f"user: {user}")
+        output = user.calc_successfully_solved(cursor)
+        print(f"output: {output}")
+
+
+        user_existance, error = check_if_user_exists(cursor, user.korisnickoime, user.email)
         if user_existance:
-            return {"error": "username taken"}, 400
+            return {"error": error}, 400
            
         
         cursor.execute("""INSERT INTO korisnik
                                     (korisnickoime, slikaprofila, lozinka, ime, prezime, email, titula, nivouprava)
                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s);""",
-                         (data["korisnickoime"], "juan.png", data["lozinka"], data["ime"], data["prezime"], data["email"], 'amater', data["nivouprava"]))
+                         (user.korisnickoime, user.slikaprofila, user.lozinka, user.ime, user.prezime, user.email, user.titula, user.nivouprava))
         conn.commit()
        
         return {"data": "successfully registered user"}, 200
