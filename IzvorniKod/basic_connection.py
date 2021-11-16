@@ -26,14 +26,13 @@ def check_if_user_exists(cursor, username, email):
 	db_response = cursor.fetchone()
 	if db_response is not None:
 		return True, "username taken"
-	
+
 	return False, None
 
 
 def get_user(cursor, korisnickoime):
 	cursor.execute("SELECT * FROM korisnik WHERE korisnickoime = %s;", (korisnickoime,))
-	resp = cursor.fetchone()[1:]
-	print(resp)
+	resp = cursor.fetchone()[1:] # Ignore user ID
 	user = Korisnik(*resp)
 	return user
 
@@ -51,7 +50,6 @@ def login():
 
 			user = get_user(cursor, data["korisnickoime"])
 
-		
 			user_existance = check_if_user_exists(cursor, user.korisnickoime, user.email)
 			if user_existance:
 				#TODO hashing password
@@ -60,12 +58,11 @@ def login():
 
 				if db_response is not None:
 					return {"data": "successfully logged in"}, 200
-				
+
 				return {"error": "wrong password"}, 400
 
 			return {"error": "user doesn't exist or wrong username"}, 400
 
-		
 		return {"error": "not POST requst"}, 400
 
 
@@ -86,14 +83,13 @@ def register():
 		user_existance, error = check_if_user_exists(cursor, user.korisnickoime, user.email)
 		if user_existance:
 			return {"error": error}, 400
-		   
-		
+
 		cursor.execute("""INSERT INTO korisnik
 									(korisnickoime, slikaprofila, lozinka, ime, prezime, email, titula, nivouprava)
 						 VALUES (%s, %s, %s, %s, %s, %s, %s, %s);""",
 						 (user.korisnickoime, user.slikaprofila, user.lozinka, user.ime, user.prezime, user.email, user.titula, user.nivouprava))
 		conn.commit()
-	   
+
 		return {"data": "successfully registered user"}, 200
 
 	else:

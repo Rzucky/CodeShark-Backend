@@ -1,5 +1,3 @@
-
-
 class Korisnik:
 	def __init__(self, korisnickoime, slikaprofila, lozinka, ime, prezime, email, titula = 'amater', nivouprava = 1):
 		self.korisnickoime = korisnickoime
@@ -20,7 +18,6 @@ class Korisnik:
 
 
 	def calc_successfully_solved(self, cursor):
-
 		self.__get_id(cursor)
 
 		cursor.execute("""SELECT COUNT (DISTINCT zadatakid) AS BrojTocnoRijesenih
@@ -46,8 +43,4 @@ class Korisnik:
 		if self.attempted != 0:
 			return self.solved / self.attempted
 		else:
-
 			return 0
-
-
-
