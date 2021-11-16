@@ -24,7 +24,7 @@ class Korisnik:
 							FROM uploadrjesenja
 						WHERE korisnikid = %s AND prolaznost = 1;""", (self.korisnik_id,))
 		num_correctly_solved = (cursor.fetchone())[0]
-		print(f"num solved : {num_correctly_solved}")
+		#print(f"num solved : {num_correctly_solved}")
 		if num_correctly_solved == 0:
 			num_correctly_solved = 1
 
@@ -32,7 +32,7 @@ class Korisnik:
 							FROM uploadrjesenja
 						WHERE korisnikid = %s;""", (self.korisnik_id,))
 		num_attempted = (cursor.fetchone())[0]
-		print(f"num attempted : {num_attempted}")
+		#print(f"num attempted : {num_attempted}")
 		if num_attempted == 0:
 			num_attempted = 3
 

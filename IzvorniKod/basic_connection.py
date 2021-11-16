@@ -12,7 +12,6 @@ api = Api(app)
 
 
 def connect_to_db():
-	#conn = psycopg2.connect(host="161.97.182.243", database="codeshark", user="codeshark_user", password="kmice")
 	conn = psycopg2.connect(host		= cfg.get_config("host"),
 							database	= cfg.get_config("database"),
 							user		= cfg.get_config("user"),
@@ -57,7 +56,6 @@ def login():
 
 			user_existance = check_if_user_exists(cursor, user.korisnicko_ime, user.email)
 			if user_existance:
-				#TODO hashing password
 				cursor.execute("""SELECT * from korisnik WHERE korisnickoime = %s AND lozinka = %s""", (data["korisnickoime"],  hash_password(data["lozinka"]),))
 				db_response = cursor.fetchone()
 
@@ -80,10 +78,7 @@ def register():
 		print(data)
 
 		user = Korisnik(data["korisnickoime"], data["slikaprofila"], hash_password(data["lozinka"]), data["ime"], data["prezime"], data["email"], data["titula"], data["nivouprava"])
-		print(f"user: {user}")
 		output = user.calc_successfully_solved(cursor)
-		print(f"output: {output}")
-
 
 		user_existance, error = check_if_user_exists(cursor, user.korisnicko_ime, user.email)
 		if user_existance:
