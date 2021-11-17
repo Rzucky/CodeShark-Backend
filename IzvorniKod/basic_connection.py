@@ -1,5 +1,6 @@
 from flask import Flask, request
 from flask_restful import Api
+from flask_cors import CORS
 
 import psycopg2
 import hashlib
@@ -8,6 +9,7 @@ from classes import Korisnik
 import codeshark_config as cfg
 
 app = Flask(__name__)
+CORS(app)
 api = Api(app)
 
 
@@ -97,4 +99,4 @@ def register():
 
 if __name__  == "__main__":
 	cfg.load_config()
-	app.run(host='0.0.0.0', debug=False)
+	app.run(host='0.0.0.0', debug=False,ssl_context=('/etc/letsencrypt/live/sigma.domefan.club/fullchain.pem','/etc/letsencrypt/live/sigma.domefan.club/privkey.pem'))
