@@ -1,20 +1,31 @@
 class Korisnik:
-	def __init__(self, korisnicko_ime, slika_profila, lozinka, ime, prezime, email, titula = 'amater', nivou_prava = 1):
+	def __init__(self, korisnicko_ime, lozinka, slika_profila, ime, prezime, email, titula = 'amater', nivou_prava = 1):
 		self.korisnicko_ime = korisnicko_ime
-		self.slika_profila = slika_profila
 		self.lozinka = lozinka #possible leaks?
+		self.slika_profila = slika_profila
 		self.ime = ime
 		self.prezime = prezime
 		self.email = email
 		self.titula = titula
 		self.nivou_prava = nivou_prava
 
-
 	def __get_id(self, cursor):
 		cursor.execute("""SELECT korisnikid FROM korisnik WHERE korisnickoime = %s;""", (self.korisnicko_ime,))
 		self.korisnik_id = cursor.fetchone()
 		print(self.korisnik_id)
 
+
+	#TODO: update
+	def set_unactivated(self): #, cursor, token, time
+		#print('stavio sam False')
+		self.aktivan = False
+		#self.token = False
+		#cursor.execute('INSERT INTO korisnik (token, tokengeneriran, aktivan) VALUES (%s, %s, %s)', (token, time, False))
+
+	def check_activated(self, cursor):
+		cursor.execute("""SELECT aktivan FROM korisnik WHERE korisnickoime = %s;""", (self.korisnicko_ime,))
+		db_response = cursor.fetchone()[0]
+		return db_response
 
 
 	def calc_successfully_solved(self, cursor):
@@ -24,6 +35,8 @@ class Korisnik:
 							FROM uploadrjesenja
 						WHERE korisnikid = %s AND prolaznost = 1;""", (self.korisnik_id,))
 		num_correctly_solved = (cursor.fetchone())[0]
+		
+		#currently for testing purposes
 		#print(f"num solved : {num_correctly_solved}")
 		if num_correctly_solved == 0:
 			num_correctly_solved = 1
@@ -32,6 +45,8 @@ class Korisnik:
 							FROM uploadrjesenja
 						WHERE korisnikid = %s;""", (self.korisnik_id,))
 		num_attempted = (cursor.fetchone())[0]
+
+		#currently for testing purposes
 		#print(f"num attempted : {num_attempted}")
 		if num_attempted == 0:
 			num_attempted = 3
