@@ -96,7 +96,7 @@ def login():
 		#check if user is validated
 		verified = check_verified(user, cursor)
 		if not verified:
-			return {"error": "User is not activated"}, 400
+			return {"error": "User is not activated"}, 401
 		
 		return {"data": "successfully logged in"}, 200
 
@@ -107,7 +107,7 @@ def validate(token):
 	with conn, cursor:
 		token_timestamp = get_token_time(cursor, token)
 		if token_timestamp is None:
-			return {"error": "Token invalid"}, 200
+			return {"error": "Token invalid"}, 400
 
 		current_time = datetime.now()
 
@@ -116,7 +116,7 @@ def validate(token):
 			conn.commit()
 			return {"data": "Successfully validated user"}, 200
 		
-		return {"error": "Token expired"}, 200
+		return {"error": "Token expired"}, 401
 		
 
 @app.route('/register', methods=['POST'])
