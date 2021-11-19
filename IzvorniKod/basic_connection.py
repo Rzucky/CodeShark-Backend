@@ -12,6 +12,7 @@ import requests
 
 from classes import Korisnik
 import codeshark_config as cfg
+import send_mail
 
 app = Flask(__name__)
 CORS(app)
@@ -142,6 +143,9 @@ def register():
 						(user.korisnicko_ime, user.slika_profila, user.lozinka, user.ime, user.prezime, user.email, user.titula, user.nivou_prava, token, current_time))
 		user.set_unactivated()
 		conn.commit()
+
+		# Sending verification mail
+		send_mail.send_verification_mail(user.ime, user.prezime, user.email, token)
 
 		# Profile pic
 		fname = f"pfp_{user.korisnicko_ime}"
