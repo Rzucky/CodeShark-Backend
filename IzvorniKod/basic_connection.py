@@ -76,7 +76,19 @@ def set_activated(cursor, token):
 
 def check_verified(user, cursor):
 	return user.check_activated(cursor)
-	
+
+
+@app.route('/avatar/<username>', methods=['GET'])
+def avatar(username):
+	conn, cursor = connect_to_db()
+	with conn, cursor:
+		cursor.execute("""SELECT slikaprofila FROM korisnik WHERE korisnickoime = %s;""", (username,))
+		profile_pic_url = cursor.fetchone()
+		if profile_pic_url is not None:
+			return {"url": f"{profile_pic_url[0]}"}, 200
+
+		return {"error" : "No profile picture available"}, 404
+
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -122,7 +134,7 @@ def validate(token):
 			return {"data": "Successfully validated user"}, 200
 		
 		return {"error": "Token expired"}, 401
-		
+
 
 @app.route('/register', methods=['POST'])
 def register():
@@ -139,7 +151,7 @@ def register():
 		# default value
 		if data["titula"] == "":
 			data["titula"] = 'amater'
-		
+
 		user = Korisnik(data["korisnickoime"],
 						hash_password(data["lozinka"]),
 						f"pfp_{hash_pfp_filename(data['korisnickoime'])}",
@@ -207,7 +219,6 @@ def register():
 		# output = user.calc_successfully_solved(cursor)
 		# for attr in dir(user):
 		# 	print("obj.%s = %r" % (attr, getattr(user, attr)))
-		
 
 if __name__  == "__main__":
 	cfg.load_config()
