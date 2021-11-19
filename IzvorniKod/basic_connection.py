@@ -1,20 +1,24 @@
 from flask import Flask, request
 from flask_restful import Api
 from flask_cors import CORS
+from werkzeug.utils import secure_filename
 
 import psycopg2
 import hashlib
 from datetime import datetime, timedelta
 import uuid
+import os
+import requests
 
 from classes import Korisnik
 import codeshark_config as cfg
-import send_mail
 
 app = Flask(__name__)
 CORS(app)
 api = Api(app)
 
+app.config["UPLOAD_FOLDER"] = "./static"	# Folder must already exist !
+app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024	# 1 MB
 
 def connect_to_db():
 	conn = psycopg2.connect(host		= cfg.get_config("host"),
@@ -138,11 +142,32 @@ def register():
 						(user.korisnicko_ime, user.slika_profila, user.lozinka, user.ime, user.prezime, user.email, user.titula, user.nivou_prava, token, current_time))
 		user.set_unactivated()
 		conn.commit()
-		
-		#sending verification mail
-		send_mail.send_verification_mail(user.ime, user.prezime, user.email, token)
 
-		return {"data": "successfully registered user"}, 200
+		# Profile pic
+		fname = f"pfp_{user.korisnicko_ime}"
+		fpath = os.path.join(app.config["UPLOAD_FOLDER"], secure_filename(fname))
+		try:
+			# Accept image from form
+			if "file" in request.files:
+				file = request.files["file"]
+				if file.filename != "":
+					file.save(f"{fpath}.{file.filename.split('.')[-1]}")
+					
+					return {"data": "successfully registered user"}, 200
+
+		except Exception as e:
+			pass
+
+		try:
+			# Generate a random profile pic
+			resp = requests.get(f"https://avatars.dicebear.com/api/jdenticon/{fname}.svg")
+			with open(f"{fpath}.svg", "wb") as fp:
+				fp.write(resp.content)
+
+			return {"data": "successfully registered user"}, 200
+
+		except Exception as e:
+			return {"data": "successfully registered user but no image"}, 200
 
 		#testing user printing 
 		#output = user.calc_successfully_solved(cursor)
