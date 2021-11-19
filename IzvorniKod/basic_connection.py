@@ -16,7 +16,7 @@ import send_mail
 app = Flask(__name__)
 CORS(app)
 
-app.config["UPLOAD_FOLDER"] = "./static"	# Folder must already exist !
+app.config["UPLOAD_FOLDER"] = "/var/www/sigma.domefan.club/images"	# Folder must already exist !
 app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024	# 1 MB
 
 def connect_to_db():
