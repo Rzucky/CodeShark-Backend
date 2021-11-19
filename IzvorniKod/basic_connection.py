@@ -1,5 +1,4 @@
 from flask import Flask, request
-from flask_restful import Api
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
@@ -16,7 +15,6 @@ import send_mail
 
 app = Flask(__name__)
 CORS(app)
-api = Api(app)
 
 app.config["UPLOAD_FOLDER"] = "./static"	# Folder must already exist !
 app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024	# 1 MB
@@ -57,6 +55,9 @@ def get_user(cursor, korisnickoime):
 
 def hash_password(plainpass):
 	return hashlib.sha256(plainpass.encode('utf-8')).hexdigest()
+
+def hash_pfp_filename(username):
+	return hashlib.md5(username.encode('utf-8')).hexdigest()
 
 def get_token_time(cursor, token):
 	cursor.execute("""SELECT tokengeneriran FROM korisnik WHERE token = %s;""", (token,))
@@ -130,18 +131,60 @@ def register():
 		if request.method != 'POST':
 			return {"error": "not POST request"}, 400
 
-		data = request.json
+		file_ext = None
+
+		#data = request.get_json(force=True)
+		data = dict(request.form)
 
 		# default value
 		if data["titula"] == "":
 			data["titula"] = 'amater'
-
-		user = Korisnik(data["korisnickoime"], hash_password(data["lozinka"]), data["slikaprofila"], data["ime"], data["prezime"], data["email"], data["titula"], data["nivouprava"])
+		
+		user = Korisnik(data["korisnickoime"],
+						hash_password(data["lozinka"]),
+						f"pfp_{hash_pfp_filename(data['korisnickoime'])}",
+						data["ime"],
+						data["prezime"],
+						data["email"],
+						data["titula"],
+						data["nivouprava"])
 
 		user_existance, error = check_if_user_exists(cursor, user.korisnicko_ime, user.email)
 		if user_existance:
 			return {"error": error}, 400
 
+		# Profile pic
+		fpath = os.path.join(app.config["UPLOAD_FOLDER"], secure_filename(user.slika_profila))
+		try:
+			# Accept image from form
+			if "slikaprofila" in request.files:
+				file = request.files["slikaprofila"]
+				if file.filename != "":
+					file_ext = file.filename.split('.')[-1]
+					file.save(f"{fpath}.{file_ext}")
+
+					#return {"data": "successfully registered user"}, 200
+
+		except Exception as e:
+			pass
+
+		if file_ext is None:
+			try:
+				# Generate a random profile pic
+				resp = requests.get(f'https://avatars.dicebear.com/api/jdenticon/{data["slikaprofila"]}.svg')
+				with open(f"{fpath}.svg", "wb") as fp:
+					fp.write(resp.content)
+
+				file_ext = "svg"
+				#return {"data": "successfully registered user"}, 200
+
+			except Exception as e:
+				#return {"data": "successfully registered user but no image"}, 200
+				pass
+
+
+		# Update DB
+		user.slika_profila = f"{user.slika_profila}.{file_ext}"
 		current_time = datetime.now()
 		token = (uuid.uuid4().hex)[:16]
 
@@ -155,38 +198,19 @@ def register():
 		# Sending verification mail
 		send_mail.send_verification_mail(user.ime, user.prezime, user.email, token)
 
-		# Profile pic
-		fname = f"pfp_{user.korisnicko_ime}"
-		fpath = os.path.join(app.config["UPLOAD_FOLDER"], secure_filename(fname))
-		try:
-			# Accept image from form
-			if "file" in request.files:
-				file = request.files["file"]
-				if file.filename != "":
-					file.save(f"{fpath}.{file.filename.split('.')[-1]}")
-					
-					return {"data": "successfully registered user"}, 200
-
-		except Exception as e:
-			pass
-
-		try:
-			# Generate a random profile pic
-			resp = requests.get(f"https://avatars.dicebear.com/api/jdenticon/{fname}.svg")
-			with open(f"{fpath}.svg", "wb") as fp:
-				fp.write(resp.content)
-
+		if file_ext is None:
+			return {"data": "successfully registered user but no image"}, 200
+		else:
 			return {"data": "successfully registered user"}, 200
 
-		except Exception as e:
-			return {"data": "successfully registered user but no image"}, 200
-
 		#testing user printing 
-		#output = user.calc_successfully_solved(cursor)
+		# output = user.calc_successfully_solved(cursor)
 		# for attr in dir(user):
 		# 	print("obj.%s = %r" % (attr, getattr(user, attr)))
-
+		
 
 if __name__  == "__main__":
 	cfg.load_config()
-	app.run(host='0.0.0.0', debug = False, ssl_context=('/etc/letsencrypt/live/sigma.domefan.club/fullchain.pem','/etc/letsencrypt/live/sigma.domefan.club/privkey.pem'))
+	app.run(host='0.0.0.0', debug=False, ssl_context=('/etc/letsencrypt/live/sigma.domefan.club/fullchain.pem','/etc/letsencrypt/live/sigma.domefan.club/privkey.pem'))
+	#app.run(host='0.0.0.0', debug=False)
+	#app.run(debug=True)
