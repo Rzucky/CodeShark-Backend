@@ -9,6 +9,7 @@ import uuid
 
 from classes import Korisnik
 import codeshark_config as cfg
+import send_mail
 
 app = Flask(__name__)
 CORS(app)
@@ -138,6 +139,9 @@ def register():
 		user.set_unactivated()
 		conn.commit()
 		
+		#sending verification mail
+		send_mail.send_verification_mail(user.ime, user.prezime, user.email, token)
+
 		return {"data": "successfully registered user"}, 200
 
 		#testing user printing 
