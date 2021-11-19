@@ -67,7 +67,11 @@ def get_token_time(cursor, token):
 	return None
 
 def set_activated(cursor, token):
+	# Activating user
 	cursor.execute("""UPDATE korisnik SET aktivan = %s WHERE token = %s;""", (True, token,))
+	# Removing token from db
+	cursor.execute("""UPDATE korisnik SET token = %s, tokengeneriran = %s WHERE token = %s;""", (None, None, token,))
+
 
 def check_verified(user, cursor):
 	return user.check_activated(cursor)
@@ -128,6 +132,10 @@ def register():
 
 		data = request.json
 
+		# default value
+		if data["titula"] == "":
+			data["titula"] = 'amater'
+
 		user = Korisnik(data["korisnickoime"], hash_password(data["lozinka"]), data["slikaprofila"], data["ime"], data["prezime"], data["email"], data["titula"], data["nivouprava"])
 
 		user_existance, error = check_if_user_exists(cursor, user.korisnicko_ime, user.email)
@@ -181,4 +189,4 @@ def register():
 
 if __name__  == "__main__":
 	cfg.load_config()
-	app.run(host='0.0.0.0', debug=False, ssl_context=('/etc/letsencrypt/live/sigma.domefan.club/fullchain.pem','/etc/letsencrypt/live/sigma.domefan.club/privkey.pem'))
+	app.run(host='0.0.0.0', debug = False, ssl_context=('/etc/letsencrypt/live/sigma.domefan.club/fullchain.pem','/etc/letsencrypt/live/sigma.domefan.club/privkey.pem'))
