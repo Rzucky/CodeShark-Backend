@@ -1,7 +1,7 @@
 class Korisnik:
 	def __init__(self, korisnicko_ime, lozinka, slika_profila, ime, prezime, email, titula = 'amater', nivou_prava = 1):
 		self.korisnicko_ime = korisnicko_ime
-		self.lozinka = lozinka #possible leaks?
+		self.lozinka = lozinka
 		self.slika_profila = slika_profila
 		self.ime = ime
 		self.prezime = prezime
@@ -16,11 +16,8 @@ class Korisnik:
 
 
 	#TODO: update
-	def set_unactivated(self): #, cursor, token, time
-		#print('stavio sam False')
+	def set_unactivated(self):
 		self.aktivan = False
-		#self.token = False
-		#cursor.execute('INSERT INTO korisnik (token, tokengeneriran, aktivan) VALUES (%s, %s, %s)', (token, time, False))
 
 	def check_activated(self, cursor):
 		cursor.execute("""SELECT aktivan FROM korisnik WHERE korisnickoime = %s;""", (self.korisnicko_ime,))
