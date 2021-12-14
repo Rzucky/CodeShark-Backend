@@ -15,13 +15,13 @@ import send_mail
 
 cfg.load_config()
 
-_DEBUG = cfg.get_config("debug")
+debug_main = cfg.get_config("debug_main")
+debug_ssl  = cfg.get_config("debug_ssl")
+debug_mail = cfg.get_config("debug_mail")
 
 app = Flask(__name__)
 CORS(app)
 
-# app.config["UPLOAD_FOLDER"] = "/var/www/sigma.domefan.club/images"	# Folder must already exist !
-# app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024	# 1 MB
 
 app.config["UPLOAD_FOLDER"] = cfg.get_config("img_upload_dir")	# Folder must already exist !
 app.config["MAX_CONTENT_LENGTH"] = cfg.get_config("max_content_length")	# bytes [=1 MB]
@@ -85,10 +85,6 @@ def check_verified(user, cursor):
 	return user.check_activated(cursor)
 
 
-# @app.route("/")
-# def hello():
-# 	return "<h1 style='color:blue'>Hello There!</h1>"
-
 @app.route('/avatar/<username>', methods=['GET'])
 def avatar(username):
 	conn, cursor = connect_to_db()
@@ -125,7 +121,7 @@ def login():
 		verified = check_verified(user, cursor)
 		if not verified:
 			return {"error": "User is not activated"}, 401
-		
+
 		return {"data": "successfully logged in"}, 200
 
 
@@ -158,7 +154,7 @@ def register():
 
 		#data = request.get_json(force=True)
 		data = dict(request.form)
-
+		print(data)
 		# default value
 		if data["titula"] == "":
 			data["titula"] = 'amater'
@@ -219,8 +215,11 @@ def register():
 		conn.commit()
 
 		# Sending verification mail
-		if not _DEBUG:
+		if not debug_mail:
+			print('aaaaaaaaaaaaa tu sam')
 			send_mail.send_verification_mail(user.ime, user.prezime, user.email, token)
+			print('aaaaaaaaaaaaa tu sam izaso')
+
 
 		if file_ext is None:
 			return {"data": "successfully registered user but no image"}, 200
@@ -237,14 +236,11 @@ if __name__  == "__main__":
 	flask_config = {
 		"host": cfg.get_config("flask_host"),
 		"port": cfg.get_config("flask_port"),
-		"debug": _DEBUG,
+		"debug": debug_main,
 	}
-	
-	if not _DEBUG:
+
+	if not debug_ssl:
 		flask_config["ssl_context"] = (cfg.get_config("certfile"), cfg.get_config("keyfile"))
-	
+
 	app.run(**flask_config)
-	#app.run(host='0.0.0.0', debug=False, ssl_context=('/etc/letsencrypt/live/sigma.domefan.club/fullchain.pem','/etc/letsencrypt/live/sigma.domefan.club/privkey.pem'))
-	#app.run(host='0.0.0.0', port='5000', debug=False)
-	#app.run(debug=True)
 	
