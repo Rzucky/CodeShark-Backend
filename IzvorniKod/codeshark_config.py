@@ -14,6 +14,10 @@ import json
 DEFAULT_CFG = "codeshark.cfg"
 _CFG_DATA = {}
 
+class ConfigError(Exception):
+	def __init__(self):
+		super().__init__("Option doesn't exist!")
+
 def load_config(file=None):
 	""" """
 	global _CFG_DATA
@@ -50,7 +54,8 @@ def save_config(file=None):
 def get_config(key):
 	""" """
 	if key not in _CFG_DATA:
-		raise KeyError # hmmm
+		#raise KeyError # hmmm
+		raise ConfigError
 
 	return _CFG_DATA[key]
 

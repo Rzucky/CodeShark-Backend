@@ -2,7 +2,7 @@ from flask import Flask, request
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
-import psycopg2
+import psycopg2 # apt-get install libpq-dev
 import hashlib
 from datetime import datetime, timedelta
 import uuid
@@ -13,17 +13,24 @@ from classes import Korisnik
 import codeshark_config as cfg
 import send_mail
 
+cfg.load_config()
+
+debug_main = cfg.get_config("debug_main")
+debug_ssl  = cfg.get_config("debug_ssl")
+debug_mail = cfg.get_config("debug_mail")
+
 app = Flask(__name__)
 CORS(app)
 
-app.config["UPLOAD_FOLDER"] = "/var/www/sigma.domefan.club/images"	# Folder must already exist !
-app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024	# 1 MB
+
+app.config["UPLOAD_FOLDER"] = cfg.get_config("img_upload_dir")	# Folder must already exist !
+app.config["MAX_CONTENT_LENGTH"] = cfg.get_config("max_content_length")	# bytes [=1 MB]
 
 def connect_to_db():
-	conn = psycopg2.connect(host		= cfg.get_config("host"),
-							database	= cfg.get_config("database"),
-							user		= cfg.get_config("user"),
-							password	= cfg.get_config("password"))
+	conn = psycopg2.connect(database	= cfg.get_config("postgres_name"),
+							host		= cfg.get_config("postgres_host"),
+							user		= cfg.get_config("postgres_user"),
+							password	= cfg.get_config("postgres_pass"))
 	cursor = conn.cursor()
 	return conn, cursor
 
@@ -114,7 +121,7 @@ def login():
 		verified = check_verified(user, cursor)
 		if not verified:
 			return {"error": "User is not activated"}, 401
-		
+
 		return {"data": "successfully logged in"}, 200
 
 
@@ -208,7 +215,9 @@ def register():
 		conn.commit()
 
 		# Sending verification mail
-		send_mail.send_verification_mail(user.ime, user.prezime, user.email, token)
+		if not debug_mail:
+			send_mail.send_verification_mail(user.ime, user.prezime, user.email, token)
+
 
 		if file_ext is None:
 			return {"data": "successfully registered user but no image"}, 200
@@ -220,8 +229,16 @@ def register():
 		# for attr in dir(user):
 		# 	print("obj.%s = %r" % (attr, getattr(user, attr)))
 
+
 if __name__  == "__main__":
-	cfg.load_config()
-	app.run(host='0.0.0.0', debug=False, ssl_context=('/etc/letsencrypt/live/sigma.domefan.club/fullchain.pem','/etc/letsencrypt/live/sigma.domefan.club/privkey.pem'))
-	#app.run(host='0.0.0.0', debug=False)
-	#app.run(debug=True)
+	flask_config = {
+		"host": cfg.get_config("flask_host"),
+		"port": cfg.get_config("flask_port"),
+		"debug": debug_main,
+	}
+
+	if not debug_ssl:
+		flask_config["ssl_context"] = (cfg.get_config("certfile"), cfg.get_config("keyfile"))
+
+	app.run(**flask_config)
+	
