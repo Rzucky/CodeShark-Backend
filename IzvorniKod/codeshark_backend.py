@@ -154,7 +154,7 @@ def register():
 
 		#data = request.get_json(force=True)
 		data = dict(request.form)
-		print(data)
+
 		# default value
 		if data["titula"] == "":
 			data["titula"] = 'amater'
@@ -216,9 +216,7 @@ def register():
 
 		# Sending verification mail
 		if not debug_mail:
-			print('aaaaaaaaaaaaa tu sam')
 			send_mail.send_verification_mail(user.ime, user.prezime, user.email, token)
-			print('aaaaaaaaaaaaa tu sam izaso')
 
 
 		if file_ext is None:
