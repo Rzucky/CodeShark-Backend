@@ -15,10 +15,6 @@ class Korisnik:
 		print(self.korisnik_id)
 
 
-	#TODO: update
-	def set_unactivated(self):
-		self.aktivan = False
-
 	def check_activated(self, cursor):
 		cursor.execute("""SELECT aktivan FROM korisnik WHERE korisnickoime = %s;""", (self.korisnicko_ime,))
 		db_response = cursor.fetchone()[0]
@@ -29,29 +25,27 @@ class Korisnik:
 		self.__get_id(cursor)
 
 		cursor.execute("""SELECT COUNT (DISTINCT zadatakid) AS BrojTocnoRijesenih
-							FROM uploadrjesenja
+						FROM uploadrjesenja
 						WHERE korisnikid = %s AND prolaznost = 1;""", (self.korisnik_id,))
 		num_correctly_solved = (cursor.fetchone())[0]
 		
-		#currently for testing purposes
-		#print(f"num solved : {num_correctly_solved}")
+		# currently for testing purposes
 		if num_correctly_solved == 0:
 			num_correctly_solved = 1
 
 		cursor.execute("""SELECT COUNT (DISTINCT  zadatakid) AS BrojIsprobanih
-							FROM uploadrjesenja
+						FROM uploadrjesenja
 						WHERE korisnikid = %s;""", (self.korisnik_id,))
 		num_attempted = (cursor.fetchone())[0]
 
-		#currently for testing purposes
-		#print(f"num attempted : {num_attempted}")
+		# currently for testing purposes
 		if num_attempted == 0:
 			num_attempted = 3
 
 		self.solved = num_correctly_solved
 		self.attempted = num_attempted
 		
-		#just in case
+		# in case the user hasn't attempted any
 		if self.attempted != 0:
 			return self.solved / self.attempted
 		else:
