@@ -2,14 +2,15 @@ from flask import Flask, request
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
-import psycopg2 # apt-get install libpq-dev
-import hashlib
 from datetime import datetime, timedelta
-import uuid
+import hashlib
 import os
+import psycopg2 # apt-get install libpq-dev
 import requests
+import uuid
 
-from classes import Korisnik
+
+from classes import Korisnik, Trofej
 import codeshark_config as cfg
 import send_mail
 
@@ -84,6 +85,20 @@ def set_activated(cursor, token):
 def check_verified(user, cursor):
 	return user.check_activated(cursor)
 
+def user_trophies(user, cursor):
+	trophies_list = []
+
+	cursor.execute("""SELECT trofejid, imetrofeja, slikatrofeja 
+					FROM jeosvojio NATURAL JOIN trofej natural join korisnik 
+					WHERE jeosvojio.korisnikid = korisnik.korisnikid and korisnickoime =  %s;""", (user.korisnicko_ime,))
+	trophies = cursor.fetchall()
+
+	for trophy in trophies:
+		trofej = Trofej(*trophy)
+		trophies_list.append(trofej)
+
+	return trophies_list
+
 
 @app.route('/avatar/<username>', methods=['GET'])
 def avatar(username):
@@ -96,6 +111,40 @@ def avatar(username):
 
 		return {"error" : "No profile picture available"}, 404
 
+
+@app.route('/profile', methods=['GET'])
+def profile():
+	conn, cursor = connect_to_db()
+	with conn, cursor:
+		if request.method != 'GET':
+			return {"error": "not GET request"}, 400
+
+		data = request.json
+
+		user = get_user(cursor, data["korisnickoime"])
+		if user is None:
+			return {"error": "user doesn't exist or wrong username"}, 400
+	
+		trophies_list = []
+		trophies_list_instances = user_trophies(user, cursor)
+		for trophy in trophies_list_instances:
+			trophies_list.append({
+				"name": f"{trophy.ime_trofeja}",
+				"img": 	f"{trophy.slika_trofeja}"
+			})
+
+		correctly_solved = user.calc_successfully_solved(cursor)
+
+		return {"ime": user.ime,
+				"prezime": user.prezime,
+				"slikaprofila_url": user.slika_profila,
+				"trophies": trophies_list,
+				"titula": user.titula,
+				"pokusano_zad": user.attempted,
+				"uspjesno_zad": user.solved,
+				"postotak_uspjesnih": correctly_solved
+				}, 200
+		
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -154,7 +203,6 @@ def register():
 
 		#data = request.get_json(force=True)
 		data = dict(request.form)
-
 		# default value
 		if data["titula"] == "":
 			data["titula"] = 'amater'
