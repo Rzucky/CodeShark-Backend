@@ -10,13 +10,12 @@ import requests
 import uuid
 
 
-from classes import Korisnik, Trofej
+from classes import Korisnik, Trofej, Zadatak
 import codeshark_config as cfg
 import send_mail
 
 cfg.load_config()
 
-debug_main = cfg.get_config("debug_main")
 debug_ssl  = cfg.get_config("debug_ssl")
 debug_mail = cfg.get_config("debug_mail")
 
@@ -100,6 +99,27 @@ def user_trophies(user, cursor):
 	return trophies_list
 
 
+def get_task(taskid, cursor):
+	cursor.execute("""SELECT * FROM zadatak WHERE zadatakid = %s;""", (taskid,))
+	resp = cursor.fetchone()
+	if resp is not None:
+		task = Zadatak(*resp)
+		if task.privatnost == True:
+			# we won't give info if the task is private or not
+			return None, "Task does not exist"
+		
+		return task, None
+
+	return None, "Task does not exist"
+
+
+def get_author_name(author_id, cursor):
+	cursor.execute("""SELECT ime, prezime FROM korisnik WHERE korisnikid = %s;""", (author_id,))	
+	resp = cursor.fetchone()
+
+	return resp[0], resp[1]
+
+
 @app.route('/avatar/<username>', methods=['GET'])
 def avatar(username):
 	conn, cursor = connect_to_db()
@@ -110,6 +130,32 @@ def avatar(username):
 			return {"url": f"{profile_pic_url[0]}"}, 200
 
 		return {"error" : "No profile picture available"}, 404
+
+@app.route('/task/<taskid>', methods=['GET', 'POST'])
+def task(taskid):
+	if request.method == 'GET':
+		conn, cursor = connect_to_db()
+		with conn, cursor:
+			zad, error = get_task(taskid, cursor)
+			if zad is None:
+				return {"error": error}, 403
+
+			author_name, author_lastname = get_author_name(zad.autor_id, cursor)
+			
+			return{
+				"ime_zadatka":				f"{zad.ime_zadatka}",
+				"tezina":					f"{zad.bodovi}",
+				"max_vrijeme_izvrsavanja":	f"{zad.max_vrijeme_izvrsavanja}",
+				"tekst_zadatka":			f"{zad.tekst_zadatka}",
+				"slag":						f"{zad.slag}",
+				"ime_prezime_autora":		f"{author_name} {author_lastname}"
+				}, 200
+	
+	elif request.method == 'POST':
+		pass
+
+	else:
+		return {"error": "not POST or GET request"}, 400
 
 
 @app.route('/profile', methods=['GET'])
@@ -282,7 +328,7 @@ if __name__  == "__main__":
 	flask_config = {
 		"host": cfg.get_config("flask_host"),
 		"port": cfg.get_config("flask_port"),
-		"debug": debug_main,
+		"debug": True,
 	}
 
 	if not debug_ssl:
