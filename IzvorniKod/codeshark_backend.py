@@ -154,17 +154,12 @@ def task(taskid):
 	elif request.method == 'POST':
 		pass
 
-	else:
-		return {"error": "not POST or GET request"}, 400
 
 
 @app.route('/profile', methods=['GET'])
 def profile():
 	conn, cursor = connect_to_db()
 	with conn, cursor:
-		if request.method != 'GET':
-			return {"error": "not GET request"}, 400
-
 		data = request.json
 
 		user = get_user(cursor, data["korisnickoime"])
@@ -197,9 +192,6 @@ def login():
 
 	conn, cursor = connect_to_db()
 	with conn, cursor:
-		if request.method != 'POST':
-			return {"error": "not POST request"}, 400
-
 		data = request.json
 
 		user = get_user(cursor, data["korisnickoime"])
@@ -242,12 +234,9 @@ def validate(token):
 def register():
 	conn, cursor = connect_to_db()
 	with conn, cursor:
-		if request.method != 'POST':
-			return {"error": "not POST request"}, 400
 
 		file_ext = None
 
-		#data = request.get_json(force=True)
 		data = dict(request.form)
 		# default value
 		if data["titula"] == "":
@@ -276,7 +265,7 @@ def register():
 					file_ext = file.filename.split('.')[-1]
 					file.save(f"{fpath}.{file_ext}")
 
-					#return {"data": "successfully registered user"}, 200
+					# successfully registered user
 
 		except Exception as e:
 			pass
@@ -289,10 +278,10 @@ def register():
 					fp.write(resp.content)
 
 				file_ext = "svg"
-				#return {"data": "successfully registered user"}, 200
+				# successfully registered user
 
 			except Exception as e:
-				#return {"data": "successfully registered user but no image"}, 200
+				# successfully registered user but no image, gets default picture
 				pass
 
 
