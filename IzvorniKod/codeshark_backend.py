@@ -133,9 +133,9 @@ def avatar(username):
 
 @app.route('/task/<taskid>', methods=['GET', 'POST'])
 def task(taskid):
-	if request.method == 'GET':
-		conn, cursor = connect_to_db()
-		with conn, cursor:
+	conn, cursor = connect_to_db()
+	with conn, cursor:
+		if request.method == 'GET':
 			zad, error = get_task(taskid, cursor)
 			if zad is None:
 				return {"error": error}, 403
@@ -150,9 +150,30 @@ def task(taskid):
 				"slag":						f"{zad.slag}",
 				"ime_prezime_autora":		f"{author_name} {author_lastname}"
 				}, 200
-	
-	elif request.method == 'POST':
-		pass
+					
+
+		elif request.method == 'POST':
+			data = request.json
+
+			user = get_user(cursor, data["korisnickoime"])
+			# can this happen? wrong request?
+			if user is None:
+				return {"error": "user doesn't exist or wrong username"}, 400
+			pass
+
+@app.route('/tasks', methods=['GET'])
+def tasks():
+	conn, cursor = connect_to_db()
+	with conn, cursor:
+		task_list = []
+		task_list_instances = Zadatak.get_all_public_tasks(cursor)
+		for task in task_list_instances:
+			task_list.append({
+				"task_id": f"{task.zadatak_id}",
+				"name": f"{task.ime_zadatka}",
+				"tezina": 	f"{task.bodovi}"
+			})
+		return {"tasks": task_list}, 200
 
 
 

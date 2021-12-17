@@ -82,6 +82,19 @@ class Zadatak:
 		self.autor_id = autor_id
 		self.natjecanje_id = natjecanje_id
 
+	@staticmethod
+	def get_all_public_tasks(cursor):
+		public_tasks = []
+		cursor.execute("""SELECT * FROM zadatak WHERE privatnost = false;""")
+		tasks = cursor.fetchall()
+
+		for task in tasks:
+			task_ins = Zadatak(*task)
+			public_tasks.append(task_ins)
+
+		return public_tasks		
+
+
 class TestPrimjeri:
 	def __init__(self, ulaz, izlaz, zadatak_id):
 		self.ulaz = ulaz
