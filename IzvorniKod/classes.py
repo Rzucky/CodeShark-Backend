@@ -76,6 +76,21 @@ class Korisnik:
 	def hash_pfp_filename(username):
 		return hashlib.md5(username.encode('utf-8')).hexdigest()
 
+	@staticmethod
+	def get_users_asc(cursor):
+		user_list = []
+		cursor.execute("""SELECT korisnickoime, slikaprofila, ime, prezime
+						FROM korisnik
+						ORDER BY korisnickoime ASC;""")
+		users = cursor.fetchall()
+		for user in users:
+			user_list.append({
+				"korisnickoime": f"{user[0]}",
+				"slikaprofila": f"{user[1]}",
+				"ime_prezime": f"{user[2]} {user[3]}"
+			})
+		return user_list
+
 
 class Natjecanje:
 	def __init__(self, natjecanje_id, ime_natjecanja, tekst_natjecanja, vrijeme_kraj, vrijeme_poc, slika_trofeja, broj_zadatak, autor_id, id_klase_natjecanja, trofej_id):

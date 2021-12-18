@@ -74,6 +74,20 @@ def user_trophies(user, cursor):
 
 	return trophies_list
 
+@app.route('/user/<username>', methods=['GET'])
+def user():
+	## ?? 
+	pass
+
+
+@app.route('/users', methods=['GET'])
+def users():
+	conn, cursor = connect_to_db()
+	with conn, cursor:
+		user_list = Korisnik.get_users_asc(cursor)
+		return {"users": user_list}, 200
+
+
 @app.route('/virtual_competition', methods=['GET', 'POST'])
 def virtual_competition():
 	conn, cursor = connect_to_db()
