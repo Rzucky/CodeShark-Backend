@@ -1,3 +1,5 @@
+import hashlib
+
 class Korisnik:
 	def __init__(self, korisnicko_ime, lozinka, slika_profila, ime, prezime, email, titula = 'amater', nivou_prava = 1):
 		self.korisnicko_ime = korisnicko_ime
@@ -12,7 +14,6 @@ class Korisnik:
 	def __get_id(self, cursor):
 		cursor.execute("""SELECT korisnikid FROM korisnik WHERE korisnickoime = %s;""", (self.korisnicko_ime,))
 		self.korisnik_id = cursor.fetchone()
-		print(self.korisnik_id)
 
 
 	def check_activated(self, cursor):
@@ -50,6 +51,31 @@ class Korisnik:
 			return self.solved / self.attempted
 		else:
 			return 0
+
+	@staticmethod
+	def get_token_time(cursor, token):
+		cursor.execute("""SELECT tokengeneriran FROM korisnik WHERE token = %s;""", (token,))
+		token_timestamp = cursor.fetchone()
+		if token_timestamp is not None:
+			return token_timestamp[0]
+
+		return None
+
+	@staticmethod
+	def set_activated(cursor, token):
+		# Activating user
+		cursor.execute("""UPDATE korisnik SET aktivan = %s WHERE token = %s;""", (True, token,))
+		# Removing token from db
+		cursor.execute("""UPDATE korisnik SET token = %s, tokengeneriran = %s WHERE token = %s;""", (None, None, token,))
+	
+	@staticmethod
+	def hash_password(plainpass):
+		return hashlib.sha256(plainpass.encode('utf-8')).hexdigest()
+
+	@staticmethod
+	def hash_pfp_filename(username):
+		return hashlib.md5(username.encode('utf-8')).hexdigest()
+
 
 class Natjecanje:
 	def __init__(self, natjecanje_id, ime_natjecanja, tekst_natjecanja, vrijeme_kraj, vrijeme_poc, slika_trofeja, broj_zadatak, autor_id, id_klase_natjecanja, trofej_id):
@@ -94,6 +120,37 @@ class Zadatak:
 
 		return public_tasks		
 
+	@staticmethod
+	def get_random_tasks(cursor, n):
+		cursor.execute("""SELECT zadatakid
+						FROM zadatak WHERE zadatak.privatnost = false
+						ORDER BY RANDOM () 
+						limit %s;""", n)
+		random_tasks = [i[0] for i in cursor.fetchall()]
+	
+		return random_tasks
+
+	@staticmethod
+	def get_task(taskid, cursor):
+		cursor.execute("""SELECT * FROM zadatak WHERE zadatakid = %s;""", (taskid,))
+		resp = cursor.fetchone()
+		if resp is not None:
+			task = Zadatak(*resp)
+			if task.privatnost == True:
+				# we won't give info if the task is private or not
+				return None, "Task does not exist"
+			
+			return task, None
+
+		return None, "Task does not exist"
+
+	@staticmethod
+	def get_author_name(author_id, cursor):
+		cursor.execute("""SELECT ime, prezime FROM korisnik WHERE korisnikid = %s;""", (author_id,))	
+		resp = cursor.fetchone()
+
+		return resp[0], resp[1]
+
 
 class TestPrimjeri:
 	def __init__(self, ulaz, izlaz, zadatak_id):
@@ -118,19 +175,10 @@ class VirtualnoNatjecanje:
 		self.natjecanje_id = natjecanje_id
 		self.zadaci = zadaci
 	
-	@staticmethod
-	def get_random_tasks(cursor, n):
-		cursor.execute("""SELECT zadatakid
-						FROM zadatak WHERE zadatak.privatnost = false
-						ORDER BY RANDOM () 
-						limit %s;""", n)
-		random_tasks = [i[0] for i in cursor.fetchall()]
-	
-		return random_tasks
 
 	@staticmethod
 	def create_virt_competition(conn, cursor, n, username):
-		tasks = VirtualnoNatjecanje.get_random_tasks(cursor, n)
+		tasks = Zadatak.get_random_tasks(cursor, n)
 		cursor.execute("""INSERT INTO virtnatjecanje (korisnikid, zadaci) 
 						VALUES (
 							(SELECT korisnikid FROM korisnik

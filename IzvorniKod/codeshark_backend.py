@@ -3,7 +3,6 @@ from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
 from datetime import datetime, timedelta
-import hashlib
 import os
 import psycopg2 # apt-get install libpq-dev
 import requests
@@ -60,29 +59,6 @@ def get_user(cursor, korisnickoime):
 
 	return None
 
-def hash_password(plainpass):
-	return hashlib.sha256(plainpass.encode('utf-8')).hexdigest()
-
-def hash_pfp_filename(username):
-	return hashlib.md5(username.encode('utf-8')).hexdigest()
-
-def get_token_time(cursor, token):
-	cursor.execute("""SELECT tokengeneriran FROM korisnik WHERE token = %s;""", (token,))
-	token_timestamp = cursor.fetchone()
-	if token_timestamp is not None:
-		return token_timestamp[0]
-
-	return None
-
-def set_activated(cursor, token):
-	# Activating user
-	cursor.execute("""UPDATE korisnik SET aktivan = %s WHERE token = %s;""", (True, token,))
-	# Removing token from db
-	cursor.execute("""UPDATE korisnik SET token = %s, tokengeneriran = %s WHERE token = %s;""", (None, None, token,))
-
-
-def check_verified(user, cursor):
-	return user.check_activated(cursor)
 
 def user_trophies(user, cursor):
 	trophies_list = []
@@ -98,28 +74,6 @@ def user_trophies(user, cursor):
 
 	return trophies_list
 
-
-def get_task(taskid, cursor):
-	cursor.execute("""SELECT * FROM zadatak WHERE zadatakid = %s;""", (taskid,))
-	resp = cursor.fetchone()
-	if resp is not None:
-		task = Zadatak(*resp)
-		if task.privatnost == True:
-			# we won't give info if the task is private or not
-			return None, "Task does not exist"
-		
-		return task, None
-
-	return None, "Task does not exist"
-
-
-def get_author_name(author_id, cursor):
-	cursor.execute("""SELECT ime, prezime FROM korisnik WHERE korisnikid = %s;""", (author_id,))	
-	resp = cursor.fetchone()
-
-	return resp[0], resp[1]
-
-
 @app.route('/virtual_competition', methods=['GET', 'POST'])
 def virtual_competition():
 	conn, cursor = connect_to_db()
@@ -131,7 +85,7 @@ def virtual_competition():
 			return {"popis_zadataka": f"{virt.zadaci}",
 					"natjecanje_id":f"{virt.natjecanje_id}"
 					}, 201
-					
+
 		elif request.method == 'GET':
 			## LOAD AN ALREADY CREATED VIRTUAL COMPETITION
 			pass
@@ -153,11 +107,11 @@ def task(taskid):
 	conn, cursor = connect_to_db()
 	with conn, cursor:
 		if request.method == 'GET':
-			zad, error = get_task(taskid, cursor)
+			zad, error = Zadatak.get_task(taskid, cursor)
 			if zad is None:
 				return {"error": error}, 403
 
-			author_name, author_lastname = get_author_name(zad.autor_id, cursor)
+			author_name, author_lastname = Zadatak.get_author_name(zad.autor_id, cursor)
 			
 			return{
 				"ime_zadatka":				f"{zad.ime_zadatka}",
@@ -236,14 +190,14 @@ def login():
 		if user is None:
 			return {"error": "user doesn't exist or wrong username"}, 400
 
-		cursor.execute("""SELECT * from korisnik WHERE korisnickoime = %s AND lozinka = %s""", (user.korisnicko_ime,  hash_password(data["lozinka"]),))
+		cursor.execute("""SELECT * from korisnik WHERE korisnickoime = %s AND lozinka = %s""", (user.korisnicko_ime,  Korisnik.hash_password(data["lozinka"]),))
 		db_response = cursor.fetchone()
 
 		if db_response is None:
 			return {"error": "wrong password"}, 400
 
 		#check if user is validated
-		verified = check_verified(user, cursor)
+		verified = user.check_activated(cursor)
 		if not verified:
 			return {"error": "User is not activated"}, 401
 
@@ -254,14 +208,14 @@ def login():
 def validate(token):
 	conn, cursor = connect_to_db()
 	with conn, cursor:
-		token_timestamp = get_token_time(cursor, token)
+		token_timestamp = Korisnik.get_token_time(cursor, token)
 		if token_timestamp is None:
 			return {"error": "Token invalid"}, 400
 
 		current_time = datetime.now()
 
 		if current_time - timedelta(hours=1) <= token_timestamp <= current_time:
-			set_activated(cursor, token)
+			Korisnik.set_activated(cursor, token)
 			conn.commit()
 			return {"data": "Successfully validated user"}, 200
 		
@@ -281,8 +235,8 @@ def register():
 			data["titula"] = 'amater'
 
 		user = Korisnik(data["korisnickoime"],
-						hash_password(data["lozinka"]),
-						f"pfp_{hash_pfp_filename(data['korisnickoime'])}",
+						Korisnik.hash_password(data["lozinka"]),
+						f"pfp_{Korisnik.hash_pfp_filename(data['korisnickoime'])}",
 						data["ime"],
 						data["prezime"],
 						data["email"],
@@ -332,7 +286,6 @@ def register():
 									(korisnickoime, slikaprofila, lozinka, ime, prezime, email, titula, nivouprava, token, tokengeneriran)
 						VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);""",
 						(user.korisnicko_ime, user.slika_profila, user.lozinka, user.ime, user.prezime, user.email, user.titula, user.nivou_prava, token, current_time))
-		user.set_unactivated()
 		conn.commit()
 
 		# Sending verification mail
@@ -344,11 +297,6 @@ def register():
 			return {"data": "successfully registered user but no image"}, 200
 		else:
 			return {"data": "successfully registered user"}, 200
-
-		#testing user printing 
-		# output = user.calc_successfully_solved(cursor)
-		# for attr in dir(user):
-		# 	print("obj.%s = %r" % (attr, getattr(user, attr)))
 
 
 if __name__  == "__main__":
