@@ -85,7 +85,7 @@ class Zadatak:
 	@staticmethod
 	def get_all_public_tasks(cursor):
 		public_tasks = []
-		cursor.execute("""SELECT * FROM zadatak WHERE privatnost = false;""")
+		cursor.execute("""SELECT * FROM zadatak WHERE privatnost = false limit 50;""")
 		tasks = cursor.fetchall()
 
 		for task in tasks:
@@ -112,10 +112,37 @@ class UploadRjesenja:
 		self.zadatak_id = zadatak_id
 
 class VirtualnoNatjecanje:
-	def __init__(self, korisnik_id, natjecanje_id, rand_zad_tezine_2, rand_zad_tezine_3, rand_zad_tezine_4, rand_zad_tezine_5):
+	def __init__(self, virt_natjecanje_id, korisnik_id, natjecanje_id, zadaci):
+		self.virt_natjecanje_id = virt_natjecanje_id
 		self.korisnik_id = korisnik_id
 		self.natjecanje_id = natjecanje_id
-		self.rand_zad_tezine_2 = rand_zad_tezine_2
-		self.rand_zad_tezine_3 = rand_zad_tezine_3
-		self.rand_zad_tezine_4 = rand_zad_tezine_4
-		self.rand_zad_tezine_5 = rand_zad_tezine_5
+		self.zadaci = zadaci
+	
+	@staticmethod
+	def get_random_tasks(cursor, n):
+		cursor.execute("""SELECT zadatakid
+						FROM zadatak WHERE zadatak.privatnost = false
+						ORDER BY RANDOM () 
+						limit %s;""", n)
+		random_tasks = [i[0] for i in cursor.fetchall()]
+	
+		return random_tasks
+
+	@staticmethod
+	def create_virt_competition(conn, cursor, n, username):
+		tasks = VirtualnoNatjecanje.get_random_tasks(cursor, n)
+		cursor.execute("""INSERT INTO virtnatjecanje (korisnikid, zadaci) 
+						VALUES (
+							(SELECT korisnikid FROM korisnik
+								WHERE korisnickoime = %s),
+							%s)
+							RETURNING virtnatjecanjeid;""", (username, tasks))
+		resp = (cursor.fetchone())[0]
+		conn.commit()
+
+		cursor.execute("""SELECT * from virtnatjecanje WHERE virtnatjecanjeid = %s""", (resp,))
+		virt = VirtualnoNatjecanje( *(cursor.fetchone()))
+		
+		return virt
+
+		

@@ -10,7 +10,7 @@ import requests
 import uuid
 
 
-from classes import Korisnik, Trofej, Zadatak
+from classes import Korisnik, Trofej, VirtualnoNatjecanje, Zadatak
 import codeshark_config as cfg
 import send_mail
 
@@ -118,6 +118,23 @@ def get_author_name(author_id, cursor):
 	resp = cursor.fetchone()
 
 	return resp[0], resp[1]
+
+
+@app.route('/virtual_competition', methods=['GET', 'POST'])
+def virtual_competition():
+	conn, cursor = connect_to_db()
+	with conn, cursor:
+		if request.method == 'POST':
+			data = request.json
+			virt = VirtualnoNatjecanje.create_virt_competition(conn, cursor, data["broj"], data["korisnickoime"])
+			
+			return {"popis_zadataka": f"{virt.zadaci}",
+					"natjecanje_id":f"{virt.natjecanje_id}"
+					}, 201
+					
+		elif request.method == 'GET':
+			## LOAD AN ALREADY CREATED VIRTUAL COMPETITION
+			pass
 
 
 @app.route('/avatar/<username>', methods=['GET'])
