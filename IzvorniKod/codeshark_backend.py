@@ -242,12 +242,12 @@ def execute_task():
 				# Set permissions
 				proc = None
 				try:
-					proc = subp.run(shlex.split(f"sudo -u {user_account_name} chmod 755 {solution_file}"), check=True)
+					proc = subp.run(shlex.split(f"sudo -u {user_account_name} chmod 755 {solution_file}.out"), check=True)
 				except subp.CalledProcessError:
 					return {"error": "chmod error"}, 503 # ?
 
 				# Set actual execution command
-				command = f"sudo -u {user_account_name} {solution_file}"
+				command = f"sudo -u {user_account_name} {solution_file}.out"
 
 			elif lang.lower() in ["c"]:
 				# Compile
