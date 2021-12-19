@@ -13,7 +13,7 @@
 	"img_upload_dir":		"/var/www/sigma.domefan.club/images",
 	"max_content_length":	1048576,
 
-	"debug_mail":			false,
+	"debug_mail":			true,
 	"mail_url":				"https://sigma.domefan.club/validate/",
 	"mailtrap_user":		" ",
 	"mailtrap_pass":		" ",
