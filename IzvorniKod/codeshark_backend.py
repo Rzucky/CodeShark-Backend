@@ -84,7 +84,6 @@ def home():
 		task_list_instances = Zadatak.get_recent_tasks(cursor)
 		for task in task_list_instances:
 			task_list.append({
-				"task_id": f"{task.zadatak_id}",
 				"name": f"{task.ime_zadatka}",
 				"tezina": 	f"{task.bodovi}",
 				"slug": f"{task.slag}"
@@ -188,7 +187,6 @@ def tasks():
 		task_list_instances = Zadatak.get_all_public_tasks(cursor)
 		for task in task_list_instances:
 			task_list.append({
-				"task_id": 	f"{task.zadatak_id}",
 				"name": 	f"{task.ime_zadatka}",
 				"tezina": 	f"{task.bodovi}",
 				"slug":		f"{task.slag}"
