@@ -1,0 +1,30 @@
+{
+	"debug_ssl":			true,
+	"certfile":				"/etc/letsencrypt/live/sigma.domefan.club/fullchain.pem",
+	"keyfile":				"/etc/letsencrypt/live/sigma.domefan.club/privkey.pem",
+	"flask_host":			"0.0.0.0",
+	"flask_port":			"5000",
+
+	"postgres_name":		" ",
+	"postgres_host":		" ",
+	"postgres_user":		" ",
+	"postgres_pass":		" ",
+
+	"img_upload_dir":		"/var/www/sigma.domefan.club/images",
+	"max_content_length":	1048576,
+
+	"debug_mail":			true,
+	"mail_url":				"https://sigma.domefan.club/validate/",
+	"mailtrap_user":		" ",
+	"mailtrap_pass":		" ",
+
+	"solutions_dir":		"/var/www/sigma.domefan.club/code_uploads",
+	"user_account_name":	"korisnik",
+	"compile_timeout":		10,
+
+	"python_interpreter":	"python3",
+	"c++_compiler_version":	"c++11",
+	"c_compiler_version":	"c11",
+
+	"avatar_gen_url":		"https://avatars.dicebear.com/api/jdenticon/<seed>"
+}
