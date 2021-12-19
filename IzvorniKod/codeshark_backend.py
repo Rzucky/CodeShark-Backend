@@ -7,9 +7,10 @@ import os
 import psycopg2 # apt-get install libpq-dev
 import requests
 import uuid
+import subprocess as subp
+import shlex
 
-
-from classes import Korisnik, Trofej, VirtualnoNatjecanje, Zadatak
+from classes import Korisnik, Trofej, VirtualnoNatjecanje, Zadatak, UploadRjesenja
 import codeshark_config as cfg
 import send_mail
 
@@ -160,6 +161,129 @@ def tasks():
 			})
 		return {"tasks": task_list}, 200
 
+@app.route('/execute_task', methods=['POST'])
+def execute_task():
+	conn, cursor = connect_to_db()
+	with conn, cursor:
+		if request.method == 'POST':
+			data = request.json
+
+			#rjesenje = UploadRjesenja()
+			taskid = data["zadatakid"]
+			user = data["korisnickoime"]
+			lang = data["lang"]
+			code = data["code"] # Length ?
+
+	# TODO: Move to config
+			solutions_dir = f"/var/www/sigma.domefan.club/code_uploads"
+			solution_filename = f"{user}_{time.time()}"
+			solution_path = f"{solutions_dir}/{solution_filename}"
+			with open(solution_path, "w") as fp:
+				fp.write(code)
+
+			user_account_name = f"korisnik"
+			compile_timeout = 10 # seconds
+
+			# Prepare program for each language
+			if lang in ["py3"]:
+				command = f"sudo -u {user_account_name} python3 {solution_path}"
+
+			elif lang in ["c++"]:
+				# Compile
+				cpp_std = "c++11"
+				command = f"sudo -u {user_account_name} g++ {solution_path} -o {solution_path}.out -std={cpp_std}"
+				solution_path += ".out"
+
+				try:
+					proc = subp.run(shlex.split(command), stdout=subp.PIPE, check=True, timeout=compile_timeout)
+				except subp.CalledProcessError:
+					return {
+								"error": "compile error",
+								"compiler_output": proc.stdout,
+							}, 400
+				except: subp.TimeoutExpired:
+					return {
+								"error": "compile timeout",
+								"compiler_output": "",
+							}, 400
+
+				# Set permissions
+				try:
+					proc = subp.run(shlex.split(f"sudo -u chmod 755 {solution_path}"), check=True)
+				except subp.CalledProcessError:
+					return {"error": "chmod error"}, 500 # ?
+
+
+				command = f"sudo -u {user_account_name} {solution_path}"
+
+			elif lang in ["c"]:
+				# Compile
+				c_std = "c11"
+				command = f"sudo -u {user_account_name} gcc {solution_path} -o {solution_path}.out -std={c_std}"
+				solution_path += ".out"
+
+				try:
+					proc = subp.run(shlex.split(command), stdout=subp.PIPE, check=True, timeout=compile_timeout)
+
+				except subp.CalledProcessError:
+					return {
+								"error": "compile error",
+								"compiler_output": proc.stdout,
+							}, 400
+
+				except: subp.TimeoutExpired:
+					return {
+								"error": "compile timeout",
+								"compiler_output": "",
+							}, 400
+
+				# Set permissions
+				try:
+					proc = subp.run(shlex.split(f"sudo -u chmod 755 {solution_path}"), check=True)
+				except subp.CalledProcessError:
+					return {"error": "chmod error"}, 500 # ?
+
+
+				command = f"sudo -u {user_account_name} {solution_path}"
+
+			else:
+				return {"error": "unsupported language"}, 400
+
+			# Watch out for large amounts of tests
+			command = shlex.split(command)
+
+			zad = Zadatak.get_task(taskid, cursor)
+			cursor.execute("""SELECT * FROM testprimjeri WHERE zadatakid = %s""", (taskid,))
+			tests = cursor.fetchall()
+
+			total = len(tests)
+			passed = 0
+			results = {}
+
+			for i, test in enumerate(tests):
+				proc = subp.Popen(command, stdin=subp.PIPE, stdout=subp.PIPE) # TODO: log executions
+
+				try:
+					start_time = time.time()
+					output = progpipe.communicate(input=test[0].encode(encoding='utf-8'),
+													timeout=zad.max_vrijeme_izvrsavanja)[0] # Data is also buffered in memory !
+					elapsed = time.time() - start_time
+
+					output = output.decode(encoding='utf-8').strip() # Or whatever is required
+					if test[1] == output:
+						results[i] = {"passed": True, "description": "correct answer"}
+						passed += 1
+					else:
+						results[i] = {"passed": False, "description": "wrong answer"}
+
+				except subp.TimeoutExpired:
+					proc.kill()
+					results[i] = {"passed": False, "description": "timeout"}
+
+			return {
+						"result": f"{passed}/total",
+						"tests": results,
+					}, 200
 
 
 @app.route('/profile', methods=['GET'])
