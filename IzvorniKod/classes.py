@@ -13,7 +13,7 @@ class Korisnik:
 
 	def __get_id(self, cursor):
 		cursor.execute("""SELECT korisnikid FROM korisnik WHERE korisnickoime = %s;""", (self.korisnicko_ime,))
-		self.korisnik_id = cursor.fetchone()
+		self.korisnik_id = cursor.fetchone()[0]
 
 
 	def check_activated(self, cursor):
@@ -99,7 +99,9 @@ class Korisnik:
 		return lst
 
 	def get_submitted_tasks(self, cursor):
-		cursor.execute("""SELECT * FROM uploadrjesenja WHERE autorid = %s LIMIT 10;""", (self.korisnik_id,))
+		self.__get_id(cursor)
+
+		cursor.execute("""SELECT * FROM uploadrjesenja WHERE korisnikid = %s LIMIT 10;""", (self.korisnik_id,))
 		lst = []
 		for comp in cursor.fetchall():
 			lst += [UploadRjesenja(*comp)]

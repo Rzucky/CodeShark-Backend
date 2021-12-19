@@ -360,8 +360,28 @@ def members(username):
 			})
 
 		correctly_solved 		= user.calc_successfully_solved(cursor)
-		submitted_tasks			= user.get_submitted_tasks(cursor)		if user.nivou_prava == 1		else [] # Natjecatelj
-		created_competitions	= user.get_created_competitons(cursor)	if user.nivou_prava in [2, 3]	else [] # Voditelj || Admin
+		
+		submitted_tasks = []
+		created_competitions = []
+		if user.nivou_prava == 1:		# Natjecatelj
+			submitted_tasks_ins	= user.get_submitted_tasks(cursor)
+			for task in submitted_tasks_ins:
+				task = task.__dict__
+				del task["korisnik_id"]
+				submitted_tasks.append(task)
+
+		elif user.nivou_prava in [2, 3]:	# Voditelj || Admin
+			created_competitions_ins = user.get_created_competitons(cursor)
+			for comp in created_competitions_ins:
+				created_competitions.append({
+					"natjecanje_id":f"{comp.natjecanje_id}",
+					"ime_natjecanja":f"{comp.ime_natjecanja}",
+					"vrijeme_pocetak":f"{comp.vrijeme_poc}",
+					"vrijeme_kraj":f"{comp.vrijeme_kraj}",
+					"slika_trofeja":f"{comp.slika_trofeja}",
+					"broj_zadataka":f"{comp.broj_zadatak}",
+					"id_klase_natjecanja":f"{comp.id_klase_natjecanja}",
+				})
 
 		return {"ime": user.ime,
 				"prezime": user.prezime,
