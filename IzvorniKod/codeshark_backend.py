@@ -201,7 +201,7 @@ def execute_task():
 								"error": "compile error",
 								"compiler_output": proc.stdout,
 							}, 400
-				except: subp.TimeoutExpired:
+				except subp.TimeoutExpired:
 					return {
 								"error": "compile timeout",
 								"compiler_output": "",
@@ -231,7 +231,7 @@ def execute_task():
 								"compiler_output": proc.stdout,
 							}, 400
 
-				except: subp.TimeoutExpired:
+				except subp.TimeoutExpired:
 					return {
 								"error": "compile timeout",
 								"compiler_output": "",
