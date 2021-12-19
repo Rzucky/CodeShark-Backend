@@ -150,16 +150,16 @@ def avatar(username):
 
 		return {"error" : "No profile picture available"}, 404
 
-@app.route('/task/<taskid>', methods=['GET', 'POST'])
-def task(taskid):
+@app.route('/task/<slug>', methods=['GET', 'POST'])
+def task(slug):
 	conn, cursor = connect_to_db()
 	with conn, cursor:
 		if request.method == 'GET':
-			zad, error = Zadatak.get_task(taskid, cursor)
+			zad, error = Zadatak.get_task(cursor, slug)
 			if zad is None:
 				return {"error": error}, 403
 
-			author_name, author_lastname = Zadatak.get_author_name(zad.autor_id, cursor)
+			author_name, author_lastname = Zadatak.get_author_name(cursor, slug)
 			
 			return{
 				"ime_zadatka":				f"{zad.ime_zadatka}",
@@ -188,10 +188,10 @@ def tasks():
 		task_list_instances = Zadatak.get_all_public_tasks(cursor)
 		for task in task_list_instances:
 			task_list.append({
-				"task_id": f"{task.zadatak_id}",
-				"name": f"{task.ime_zadatka}",
+				"task_id": 	f"{task.zadatak_id}",
+				"name": 	f"{task.ime_zadatka}",
 				"tezina": 	f"{task.bodovi}",
-				"slug": f"{task.slag}"
+				"slug":		f"{task.slag}"
 			})
 		return {"tasks": task_list}, 200
 
@@ -202,7 +202,7 @@ def execute_task():
 		if request.method == 'POST':
 			data = request.json
 
-			taskid = data["zadatakid"]
+			slug = data["slug"]
 			user = data["korisnickoime"]
 			lang = data["lang"]
 			code = data["code"] # Length ?
@@ -283,8 +283,8 @@ def execute_task():
 			# Watch out for large amounts of tests
 			command = shlex.split(command)
 
-			zad = Zadatak.get_task(taskid, cursor)
-			cursor.execute("""SELECT * FROM testprimjeri WHERE zadatakid = %s ORDER BY ulaz ASC;""", (taskid,))
+			zad = Zadatak.get_task(cursor, slug)
+			cursor.execute("""SELECT testprimjer.* FROM testprimjer NATURAL JOIN zadatak WHERE zadatak.slug = %s ORDER BY ulaz ASC;""", (zad.slug,))
 			tests = cursor.fetchall()
 
 			total_tests = len(tests)
@@ -320,7 +320,7 @@ def execute_task():
 									submit_time,
 									total_time / total_tests,
 									cursor.fetchone()[0],
-									taskid)
+									zad.zadatak_id)
 
 			# Delete temporary code files
 			try:

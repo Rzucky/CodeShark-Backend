@@ -175,8 +175,8 @@ class Zadatak:
 		return random_tasks
 
 	@staticmethod
-	def get_task(taskid, cursor):
-		cursor.execute("""SELECT * FROM zadatak WHERE zadatakid = %s;""", (taskid,))
+	def get_task(cursor, slug):
+		cursor.execute("""SELECT * FROM zadatak WHERE slug = %s;""", (slug,))
 		resp = cursor.fetchone()
 		if resp is not None:
 			task = Zadatak(*resp)
@@ -189,9 +189,11 @@ class Zadatak:
 		return None, "Task does not exist"
 
 	@staticmethod
-	def get_author_name(author_id, cursor):
-		cursor.execute("""SELECT ime, prezime FROM korisnik 
-						WHERE korisnikid = %s;""", (author_id,))	
+	def get_author_name(cursor, slug):
+		cursor.execute("""SELECT ime, prezime 
+					FROM zadatak NATURAL JOIN korisnik 
+					WHERE korisnik.korisnikid = zadatak.autorid 
+					AND zadatak.slug = %s;""", (slug,))	
 		resp = cursor.fetchone()
 
 		return resp[0], resp[1]
