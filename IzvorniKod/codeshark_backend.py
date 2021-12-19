@@ -11,7 +11,7 @@ import subprocess as subp
 import shlex
 import time
 
-from classes import Korisnik, Natjecanje, Trofej, VirtualnoNatjecanje, Zadatak, TestPrimjer
+from classes import Korisnik, Natjecanje, Trofej, VirtualnoNatjecanje, Zadatak, TestPrimjer, UploadRjesenja
 import codeshark_config as cfg
 import send_mail
 
@@ -207,23 +207,24 @@ def execute_task():
 			lang = data["lang"]
 			code = data["code"] # Length ?
 
+			submit_time = datetime.now()
+
 	# TODO: Move to config
-			solutions_dir = f"/var/www/sigma.domefan.club/code_uploads"
+			solutions_dir = cfg.get_config("solutions_dir")
 			solution_file = f"{solutions_dir}/{user}_{time.time()}"
 			with open(solution_file, "w") as fp:
 				fp.write(code)
 
-			user_account_name = f"korisnik"
-			compile_timeout = 10 # seconds
+			user_account_name = cfg.get_config("user_account_name")
+			compile_timeout = cfg.get_config("compile_timeout") # seconds
 
-			# Prepare program for each language
-			if lang in ["py3"]:
-				command = f"sudo -u {user_account_name} python3 {solution_file}"
+			# Prepare command for each language
+			if lang.lower() in ["py3"]:
+				command = f"sudo -u {user_account_name} {cfg.get_config('python_interpreter')} {solution_file}"
 
-			elif lang in ["c++"]:
+			elif lang.lower() in ["c++"]:
 				# Compile
-				cpp_std = "c++11"
-				command = f"sudo -u {user_account_name} g++ {solution_file} -o {solution_file}.out -std={cpp_std}"
+				command = f"sudo -u {user_account_name} g++ {solution_file} -o {solution_file}.out -std={cfg.get_config('c++_compiler_version')}"
 
 				proc = None
 				try:
@@ -242,16 +243,16 @@ def execute_task():
 				# Set permissions
 				proc = None
 				try:
-					proc = subp.run(shlex.split(f"sudo -u chmod 755 {solution_file}"), check=True)
+					proc = subp.run(shlex.split(f"sudo -u {user_account_name} chmod 755 {solution_file}"), check=True)
 				except subp.CalledProcessError:
 					return {"error": "chmod error"}, 503 # ?
 
+				# Set actual execution command
 				command = f"sudo -u {user_account_name} {solution_file}"
 
-			elif lang in ["c"]:
+			elif lang.lower() in ["c"]:
 				# Compile
-				c_std = "c11"
-				command = f"sudo -u {user_account_name} gcc {solution_file} -o {solution_file}.out -std={c_std}"
+				command = f"sudo -u {user_account_name} gcc {solution_file} -o {solution_file}.out -std={cfg.get_config('c_compiler_version')}"
 
 				proc = None
 				try:
@@ -274,6 +275,7 @@ def execute_task():
 				except subp.CalledProcessError:
 					return {"error": "chmod error"}, 503 # ?
 
+				# Set actual execution command
 				command = f"sudo -u {user_account_name} {solution_file}.out"
 
 			else:
@@ -286,9 +288,10 @@ def execute_task():
 			cursor.execute("""SELECT * FROM testprimjeri WHERE zadatakid = %s ORDER BY ulaz ASC;""", (taskid,))
 			tests = cursor.fetchall()
 
-			total = len(tests)
+			total_tests = len(tests)
 			passed = 0
 			results = {}
+			total_time = 0
 
 			for i, test in enumerate(tests):
 				test = TestPrimjer(*test)
@@ -298,7 +301,7 @@ def execute_task():
 					start_time = time.time()
 					output = proc.communicate(input=test.ulaz.encode(encoding='utf-8'),
 												timeout=zad.max_vrijeme_izvrsavanja)[0] # Data is also buffered in memory !
-					elapsed = time.time() - start_time
+					total_time += time.time() - start_time
 
 					output = output.decode(encoding='utf-8').strip() # Or whatever is required
 					if test.izlaz == output:
@@ -311,15 +314,33 @@ def execute_task():
 					proc.kill()
 					results[i] = {"passed": False, "description": "timeout"}
 
+			# Store solution data
+			cursor.execute("SELECT korisnikid WHERE korisnickoime = %s;", (user,))
+			upload = UploadRjesenja(code,
+									float(passed) / total_tests,
+									submit_time,
+									total_time / total_tests,
+									cursor.fetchone()[0],
+									taskid)
+
 			# Delete temporary code files
 			try:
 				os.remove(f"{solution_file}*") # code and .out
 			except OSError as e:
-				# TODO: Log error (just don't use Log4j pls)
+				# TODO: Log the error (just don't use Log4j pls)
 				pass
 
+			cursor.execute("""INSERT INTO uploadrjesenja
+								VALUES (%s, %s, %s, %s, %s, %s);""", (upload.predano_rjesenje,
+																	upload.prolaznost,
+																	upload.vrijeme_predaje,
+																	upload.prosj_vrijeme_izvrsenja,
+																	upload.korisnik_id,
+																	upload.zadatak_id))
+			conn.commit()
+
 			return {
-						"result": f"{passed}/{total}",
+						"result": f"{passed}/{total_tests}",
 						"tests": results,
 					}, 200
 
