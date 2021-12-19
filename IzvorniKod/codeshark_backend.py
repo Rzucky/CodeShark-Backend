@@ -9,6 +9,7 @@ import requests
 import uuid
 import subprocess as subp
 import shlex
+import time
 
 from classes import Korisnik, Trofej, VirtualnoNatjecanje, Zadatak, UploadRjesenja
 import codeshark_config as cfg
@@ -191,6 +192,7 @@ def execute_task():
 				cpp_std = "c++11"
 				command = f"sudo -u {user_account_name} g++ {solution_file} -o {solution_file}.out -std={cpp_std}"
 
+				proc = None
 				try:
 					proc = subp.run(shlex.split(command), stdout=subp.PIPE, check=True, timeout=compile_timeout)
 				except subp.CalledProcessError:
@@ -205,10 +207,11 @@ def execute_task():
 							}, 400
 
 				# Set permissions
+				proc = None
 				try:
 					proc = subp.run(shlex.split(f"sudo -u chmod 755 {solution_file}"), check=True)
 				except subp.CalledProcessError:
-					return {"error": "chmod error"}, 500 # ?
+					return {"error": "chmod error"}, 503 # ?
 
 				command = f"sudo -u {user_account_name} {solution_file}"
 
@@ -217,15 +220,14 @@ def execute_task():
 				c_std = "c11"
 				command = f"sudo -u {user_account_name} gcc {solution_file} -o {solution_file}.out -std={c_std}"
 
+				proc = None
 				try:
 					proc = subp.run(shlex.split(command), stdout=subp.PIPE, check=True, timeout=compile_timeout)
-
 				except subp.CalledProcessError:
 					return {
 								"error": "compile error",
 								"compiler_output": proc.stdout,
 							}, 400
-
 				except subp.TimeoutExpired:
 					return {
 								"error": "compile timeout",
@@ -233,10 +235,11 @@ def execute_task():
 							}, 400
 
 				# Set permissions
+				proc = None
 				try:
 					proc = subp.run(shlex.split(f"sudo -u {user_account_name} chmod 755 {solution_file}.out"), check=True)
 				except subp.CalledProcessError:
-					return {"error": "chmod error"}, 500 # ?
+					return {"error": "chmod error"}, 503 # ?
 
 				command = f"sudo -u {user_account_name} {solution_file}.out"
 
@@ -259,8 +262,8 @@ def execute_task():
 
 				try:
 					start_time = time.time()
-					output = progpipe.communicate(input=test[0].encode(encoding='utf-8'),
-													timeout=zad.max_vrijeme_izvrsavanja)[0] # Data is also buffered in memory !
+					output = proc.communicate(input=test[0].encode(encoding='utf-8'),
+												timeout=zad.max_vrijeme_izvrsavanja)[0] # Data is also buffered in memory !
 					elapsed = time.time() - start_time
 
 					output = output.decode(encoding='utf-8').strip() # Or whatever is required
