@@ -11,7 +11,7 @@ import subprocess as subp
 import shlex
 import time
 
-from classes import Korisnik, Trofej, VirtualnoNatjecanje, Zadatak, UploadRjesenja
+from classes import Korisnik, Trofej, VirtualnoNatjecanje, Zadatak, TestPrimjer
 import codeshark_config as cfg
 import send_mail
 
@@ -250,7 +250,7 @@ def execute_task():
 			command = shlex.split(command)
 
 			zad = Zadatak.get_task(taskid, cursor)
-			cursor.execute("""SELECT * FROM testprimjeri WHERE zadatakid = %s""", (taskid,))
+			cursor.execute("""SELECT * FROM testprimjeri WHERE zadatakid = %s ORDER BY ulaz ASC;""", (taskid,))
 			tests = cursor.fetchall()
 
 			total = len(tests)
@@ -258,16 +258,17 @@ def execute_task():
 			results = {}
 
 			for i, test in enumerate(tests):
+				test = TestPrimjer(*test)
 				proc = subp.Popen(command, stdin=subp.PIPE, stdout=subp.PIPE) # TODO: log executions
 
 				try:
 					start_time = time.time()
-					output = proc.communicate(input=test[0].encode(encoding='utf-8'),
+					output = proc.communicate(input=test.ulaz.encode(encoding='utf-8'),
 												timeout=zad.max_vrijeme_izvrsavanja)[0] # Data is also buffered in memory !
 					elapsed = time.time() - start_time
 
 					output = output.decode(encoding='utf-8').strip() # Or whatever is required
-					if test[1] == output:
+					if test.izlaz == output:
 						results[i] = {"passed": True, "description": "correct answer"}
 						passed += 1
 					else:
@@ -280,11 +281,12 @@ def execute_task():
 			# Delete temporary code files
 			try:
 				os.remove(f"{solution_file}*") # code and .out
-			except OSError:
+			except OSError as e:
+				# TODO: Log error (just don't use Log4j pls)
 				pass
 
 			return {
-						"result": f"{passed}/total",
+						"result": f"{passed}/{total}",
 						"tests": results,
 					}, 200
 

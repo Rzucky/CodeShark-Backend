@@ -67,7 +67,7 @@ class Korisnik:
 		cursor.execute("""UPDATE korisnik SET aktivan = %s WHERE token = %s;""", (True, token,))
 		# Removing token from db
 		cursor.execute("""UPDATE korisnik SET token = %s, tokengeneriran = %s WHERE token = %s;""", (None, None, token,))
-	
+
 	@staticmethod
 	def hash_password(plainpass):
 		return hashlib.sha256(plainpass.encode('utf-8')).hexdigest()
@@ -167,7 +167,7 @@ class Zadatak:
 		return resp[0], resp[1]
 
 
-class TestPrimjeri:
+class TestPrimjer:
 	def __init__(self, ulaz, izlaz, zadatak_id):
 		self.ulaz = ulaz
 		self.izlaz = izlaz
