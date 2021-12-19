@@ -168,7 +168,6 @@ def execute_task():
 		if request.method == 'POST':
 			data = request.json
 
-			#rjesenje = UploadRjesenja()
 			taskid = data["zadatakid"]
 			user = data["korisnickoime"]
 			lang = data["lang"]
@@ -176,9 +175,8 @@ def execute_task():
 
 	# TODO: Move to config
 			solutions_dir = f"/var/www/sigma.domefan.club/code_uploads"
-			solution_filename = f"{user}_{time.time()}"
-			solution_path = f"{solutions_dir}/{solution_filename}"
-			with open(solution_path, "w") as fp:
+			solution_file = f"{solutions_dir}/{user}_{time.time()}"
+			with open(solution_file, "w") as fp:
 				fp.write(code)
 
 			user_account_name = f"korisnik"
@@ -186,13 +184,12 @@ def execute_task():
 
 			# Prepare program for each language
 			if lang in ["py3"]:
-				command = f"sudo -u {user_account_name} python3 {solution_path}"
+				command = f"sudo -u {user_account_name} python3 {solution_file}"
 
 			elif lang in ["c++"]:
 				# Compile
 				cpp_std = "c++11"
-				command = f"sudo -u {user_account_name} g++ {solution_path} -o {solution_path}.out -std={cpp_std}"
-				solution_path += ".out"
+				command = f"sudo -u {user_account_name} g++ {solution_file} -o {solution_file}.out -std={cpp_std}"
 
 				try:
 					proc = subp.run(shlex.split(command), stdout=subp.PIPE, check=True, timeout=compile_timeout)
@@ -209,18 +206,16 @@ def execute_task():
 
 				# Set permissions
 				try:
-					proc = subp.run(shlex.split(f"sudo -u chmod 755 {solution_path}"), check=True)
+					proc = subp.run(shlex.split(f"sudo -u chmod 755 {solution_file}"), check=True)
 				except subp.CalledProcessError:
 					return {"error": "chmod error"}, 500 # ?
 
-
-				command = f"sudo -u {user_account_name} {solution_path}"
+				command = f"sudo -u {user_account_name} {solution_file}"
 
 			elif lang in ["c"]:
 				# Compile
 				c_std = "c11"
-				command = f"sudo -u {user_account_name} gcc {solution_path} -o {solution_path}.out -std={c_std}"
-				solution_path += ".out"
+				command = f"sudo -u {user_account_name} gcc {solution_file} -o {solution_file}.out -std={c_std}"
 
 				try:
 					proc = subp.run(shlex.split(command), stdout=subp.PIPE, check=True, timeout=compile_timeout)
@@ -239,12 +234,11 @@ def execute_task():
 
 				# Set permissions
 				try:
-					proc = subp.run(shlex.split(f"sudo -u chmod 755 {solution_path}"), check=True)
+					proc = subp.run(shlex.split(f"sudo -u {user_account_name} chmod 755 {solution_file}.out"), check=True)
 				except subp.CalledProcessError:
 					return {"error": "chmod error"}, 500 # ?
 
-
-				command = f"sudo -u {user_account_name} {solution_path}"
+				command = f"sudo -u {user_account_name} {solution_file}.out"
 
 			else:
 				return {"error": "unsupported language"}, 400
@@ -279,6 +273,12 @@ def execute_task():
 				except subp.TimeoutExpired:
 					proc.kill()
 					results[i] = {"passed": False, "description": "timeout"}
+
+			# Delete temporary code files
+			try:
+				os.remove(f"{solution_file}*") # code and .out
+			except OSError:
+				pass
 
 			return {
 						"result": f"{passed}/total",
