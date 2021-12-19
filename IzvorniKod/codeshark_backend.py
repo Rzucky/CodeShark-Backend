@@ -286,7 +286,7 @@ def execute_task():
 					}, 200
 
 
-@app.route('/profile', methods=['GET'])
+@app.route('/profile', methods=['POST'])
 def profile():
 	conn, cursor = connect_to_db()
 	with conn, cursor:
