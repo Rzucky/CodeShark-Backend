@@ -209,7 +209,6 @@ def execute_task():
 
 			submit_time = datetime.now()
 
-	# TODO: Move to config
 			solutions_dir = cfg.get_config("solutions_dir")
 			solution_file = f"{solutions_dir}/{user}_{time.time()}"
 			with open(solution_file, "w") as fp:
@@ -344,14 +343,11 @@ def execute_task():
 						"tests": results,
 					}, 200
 
-
-@app.route('/profile', methods=['POST'])
-def profile():
+@app.route('/members/<username>', methods=['GET'])
+def members(username):
 	conn, cursor = connect_to_db()
 	with conn, cursor:
-		data = request.json
-
-		user = get_user(cursor, data["korisnickoime"])
+		user = get_user(cursor, username)
 		if user is None:
 			return {"error": "user doesn't exist or wrong username"}, 400
 	
@@ -376,11 +372,9 @@ def profile():
 				"uspjesno_zad": user.solved,
 				"postotak_uspjesnih": correctly_solved
 				}, 200
-		
 
 @app.route('/login', methods=['POST'])
 def login():
-
 	conn, cursor = connect_to_db()
 	with conn, cursor:
 		data = request.json
@@ -402,7 +396,6 @@ def login():
 
 		return {"data": "successfully logged in"}, 200
 
-
 @app.route('/validate/<token>', methods=['GET'])
 def validate(token):
 	conn, cursor = connect_to_db()
@@ -420,15 +413,13 @@ def validate(token):
 		
 		return {"error": "Token expired"}, 401
 
-
 @app.route('/register', methods=['POST'])
 def register():
 	conn, cursor = connect_to_db()
 	with conn, cursor:
-
 		file_ext = None
-
 		data = dict(request.form)
+
 		# default value
 		if data["titula"] == "":
 			data["titula"] = 'amater'
@@ -509,4 +500,3 @@ if __name__  == "__main__":
 		flask_config["ssl_context"] = (cfg.get_config("certfile"), cfg.get_config("keyfile"))
 
 	app.run(**flask_config)
-	
