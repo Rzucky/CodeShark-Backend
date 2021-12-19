@@ -347,6 +347,8 @@ def profile():
 		return {"ime": user.ime,
 				"prezime": user.prezime,
 				"slikaprofila_url": user.slika_profila,
+				"rank": user.nivou_prava,
+				"email": user.email,
 				"trophies": trophies_list,
 				"titula": user.titula,
 				"pokusano_zad": user.attempted,

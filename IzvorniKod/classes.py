@@ -202,12 +202,11 @@ class TestPrimjer:
 		self.zadatak_id = zadatak_id
 
 class UploadRjesenja:
-	def __init__(self, predano_rjesenje, prolaznost, vrijeme_predaje, prosj_vrijeme_izvrsenja, natjecanje_traje, korisnik_id, zadatak_id):
+	def __init__(self, predano_rjesenje, prolaznost, vrijeme_predaje, prosj_vrijeme_izvrsenja, korisnik_id, zadatak_id):
 		self.predano_rjesenje = predano_rjesenje
 		self.prolaznost = prolaznost
 		self.vrijeme_predaje = vrijeme_predaje
 		self.prosj_vrijeme_izvrsenja = prosj_vrijeme_izvrsenja
-		self.natjecanje_traje = natjecanje_traje
 		self.korisnik_id = korisnik_id
 		self.zadatak_id = zadatak_id
 
