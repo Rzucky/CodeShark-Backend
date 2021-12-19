@@ -359,7 +359,9 @@ def members(username):
 				"img": 	f"{trophy.slika_trofeja}"
 			})
 
-		correctly_solved = user.calc_successfully_solved(cursor)
+		correctly_solved 		= user.calc_successfully_solved(cursor)
+		submitted_tasks			= user.get_submitted_tasks(cursor)		if user.nivou_prava == 1		else [] # Natjecatelj
+		created_competitions	= user.get_created_competitons(cursor)	if user.nivou_prava in [2, 3]	else [] # Voditelj || Admin
 
 		return {"ime": user.ime,
 				"prezime": user.prezime,
@@ -370,7 +372,9 @@ def members(username):
 				"titula": user.titula,
 				"pokusano_zad": user.attempted,
 				"uspjesno_zad": user.solved,
-				"postotak_uspjesnih": correctly_solved
+				"postotak_uspjesnih": correctly_solved,
+				"submitted_tasks": submitted_tasks,
+				"created_competitions": created_competitions,
 				}, 200
 
 @app.route('/login', methods=['POST'])

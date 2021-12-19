@@ -91,6 +91,20 @@ class Korisnik:
 			})
 		return user_list
 
+	def get_created_competitons(self, cursor):
+		cursor.execute("""SELECT natjecanje.* FROM natjecanje NATURAL JOIN korisnik WHERE korisnik.korisnickoime = %s;""", (self.korisnicko_ime,))
+		lst = []
+		for comp in cursor.fetchall():
+			lst += [Natjecanje(*comp)]
+		return lst
+
+	def get_submitted_tasks(self, cursor):
+		cursor.execute("""SELECT * FROM uploadrjesenja WHERE autorid = %s LIMIT 10;""", (self.korisnik_id,))
+		lst = []
+		for comp in cursor.fetchall():
+			lst += [UploadRjesenja(*comp)]
+		return lst
+
 
 class Natjecanje:
 	def __init__(self, natjecanje_id, ime_natjecanja, tekst_natjecanja, vrijeme_kraj, vrijeme_poc, slika_trofeja, broj_zadatak, autor_id, id_klase_natjecanja, trofej_id):
@@ -117,7 +131,6 @@ class Natjecanje:
 			comp_list.append(comp_ins)
 		
 		return comp_list
-
 
 class Trofej:
 	def __init__(self, trofej_id, ime_trofeja, slika_trofeja):
@@ -193,7 +206,6 @@ class Zadatak:
 			task_list.append(task_ins)
 		
 		return task_list
-
 
 class TestPrimjer:
 	def __init__(self, ulaz, izlaz, zadatak_id):
