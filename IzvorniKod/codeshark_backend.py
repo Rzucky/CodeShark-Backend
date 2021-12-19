@@ -11,7 +11,7 @@ import subprocess as subp
 import shlex
 import time
 
-from classes import Korisnik, Trofej, VirtualnoNatjecanje, Zadatak, TestPrimjer
+from classes import Korisnik, Natjecanje, Trofej, VirtualnoNatjecanje, Zadatak, TestPrimjer
 import codeshark_config as cfg
 import send_mail
 
@@ -76,6 +76,38 @@ def user_trophies(user, cursor):
 
 	return trophies_list
 
+@app.route('/', methods=['GET'])
+def home():
+	conn, cursor = connect_to_db()
+	with conn, cursor:
+		task_list = []
+		task_list_instances = Zadatak.get_recent_tasks(cursor)
+		for task in task_list_instances:
+			task_list.append({
+				"task_id": f"{task.zadatak_id}",
+				"name": f"{task.ime_zadatka}",
+				"tezina": 	f"{task.bodovi}",
+				"slug": f"{task.slag}"
+			})
+
+		competition_list = []
+		comp_list_instances = Natjecanje.get_recent_competitions(cursor)
+		for comp in comp_list_instances:
+			competition_list.append({
+				"natjecanje_id":f"{comp.natjecanje_id}",
+				"ime_natjecanja":f"{comp.ime_natjecanja}",
+				"vrijeme_pocetak":f"{comp.vrijeme_poc}",
+				"vrijeme_kraj":f"{comp.vrijeme_kraj}",
+				"slika_trofeja":f"{comp.slika_trofeja}",
+				"broj_zadataka":f"{comp.broj_zadatak}",
+				"id_klase_natjecanja":f"{comp.id_klase_natjecanja}",
+			})
+
+		return {"tasks": task_list,
+				"competitions": competition_list
+				}, 200
+
+
 @app.route('/user/<username>', methods=['GET'])
 def user():
 	## ?? 
@@ -134,7 +166,7 @@ def task(taskid):
 				"tezina":					f"{zad.bodovi}",
 				"max_vrijeme_izvrsavanja":	f"{zad.max_vrijeme_izvrsavanja}",
 				"tekst_zadatka":			f"{zad.tekst_zadatka}",
-				"slag":						f"{zad.slag}",
+				"slug":						f"{zad.slag}",
 				"ime_prezime_autora":		f"{author_name} {author_lastname}"
 				}, 200
 					
@@ -158,7 +190,8 @@ def tasks():
 			task_list.append({
 				"task_id": f"{task.zadatak_id}",
 				"name": f"{task.ime_zadatka}",
-				"tezina": 	f"{task.bodovi}"
+				"tezina": 	f"{task.bodovi}",
+				"slug": f"{task.slag}"
 			})
 		return {"tasks": task_list}, 200
 

@@ -105,6 +105,20 @@ class Natjecanje:
 		self.id_klase_natjecanja = id_klase_natjecanja
 		self.trofej_id = trofej_id
 
+	@staticmethod
+	def get_recent_competitions(cursor):
+		comp_list = []
+		## needs changing to closest to start
+		cursor.execute("""SELECT * FROM natjecanje
+						ORDER BY natjecanjeid DESC LIMIT 5;""")
+		resp = cursor.fetchall()
+		for comp in resp:
+			comp_ins = Natjecanje(*comp)
+			comp_list.append(comp_ins)
+		
+		return comp_list
+
+
 class Trofej:
 	def __init__(self, trofej_id, ime_trofeja, slika_trofeja):
 		self.trofej_id = trofej_id
@@ -161,10 +175,24 @@ class Zadatak:
 
 	@staticmethod
 	def get_author_name(author_id, cursor):
-		cursor.execute("""SELECT ime, prezime FROM korisnik WHERE korisnikid = %s;""", (author_id,))	
+		cursor.execute("""SELECT ime, prezime FROM korisnik 
+						WHERE korisnikid = %s;""", (author_id,))	
 		resp = cursor.fetchone()
 
 		return resp[0], resp[1]
+
+	@staticmethod
+	def get_recent_tasks(cursor):
+		task_list = []
+		cursor.execute("""SELECT * FROM zadatak 
+					WHERE privatnost=false
+					ORDER BY zadatakid DESC LIMIT 5;""")
+		resp = cursor.fetchall()
+		for task in resp:
+			task_ins = Zadatak(*task)
+			task_list.append(task_ins)
+		
+		return task_list
 
 
 class TestPrimjer:
