@@ -95,6 +95,12 @@ def users():
 		user_list = Korisnik.get_users_asc(cursor)
 		return {"users": user_list}, 200
 
+@app.route('/virtual_competitionxd/<virt_id>', methods=['GET'])
+def virtual_competition(virt_id):
+	conn, cursor = connect_to_db()
+	with conn, cursor:
+
+
 @app.route('/virtual_competition/<virt_id>', methods=['GET'])
 @app.route('/virtual_competition', methods=['POST'])
 def virtual_competition(virt_id = None):
@@ -115,8 +121,16 @@ def virtual_competition(virt_id = None):
 			if virt is not None:
 				name = "Virtual Competition"
 				if virt.natjecanje_id is not None:
-					name = "Virtual " + VirtualnoNatjecanje.get_comp_name(cursor, virt.natjecanje_id)
+					#name = "Virtual " + VirtualnoNatjecanje.get_comp_name(cursor, virt.natjecanje_id)
 					## get tasks
+					# cursor.execute("""	SELECT slug, imenatjecanja
+					# 					FROM virtnatjecanje
+					# 						NATURAL JOIN natjecanje
+					# 						JOIN zadatak USING(natjecanjeid)
+					# 					WHERE natjecanjeid = %s;""", (virt.natjecanje_id,))
+					# virt.zadaci = cursor.fetchall()
+					virt.zadaci, name = VirtualnoNatjecanje.get_comp_data_for_virtual(cursor, virt_id)
+					name = f"Virtual {name}"
 
 				return {
 					"natjecanje_id": virt.natjecanje_id,

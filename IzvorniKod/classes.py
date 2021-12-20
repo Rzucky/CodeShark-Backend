@@ -338,9 +338,18 @@ class VirtualnoNatjecanje:
 		return None, "Virtual competition does not exist"
 
 	@staticmethod
-	def get_comp_name(cursor, comp_id):
+	def get_comp_data_for_virtual(cursor, comp_id):
+	#def get_comp_name(cursor, comp_id):
 		## potentially change to slug in the future
-		cursor.execute("""SELECT imenatjecanja
-						FROM natjecanje 
-						WHERE natjecanjeid = %s""", (comp_id,))
-		return cursor.fetchone()[0]
+		cursor.execute("""	SELECT slug, imenatjecanja
+							FROM virtnatjecanje
+								NATURAL JOIN natjecanje
+								JOIN zadatak
+									USING(natjecanjeid)
+							WHERE natjecanjeid = %s;""", (comp_id,))
+
+		res = cursor.fetchall()
+		if len(res) == 0:
+			return tuple(), None
+		else:
+			return tuple([i[0] for i in res]), res[0][1]
