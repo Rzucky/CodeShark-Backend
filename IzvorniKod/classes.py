@@ -185,7 +185,6 @@ class Natjecanje:
 		
 		return competition_list
 
-
 class Trofej:
 	def __init__(self, trofej_id, ime_trofeja, slika_trofeja):
 		self.trofej_id = trofej_id
@@ -326,3 +325,22 @@ class VirtualnoNatjecanje:
 		cursor.execute("""SELECT * from virtnatjecanje WHERE virtnatjecanjeid = %s""", (resp,))
 		
 		return VirtualnoNatjecanje( *(cursor.fetchone()))
+
+	@staticmethod
+	def get_virtual_competition(cursor, virtual_id):
+		## could someone start someone elses virtal competition?
+		cursor.execute("""SELECT * FROM virtnatjecanje
+						WHERE virtnatjecanjeid = %s""", (virtual_id,))
+		resp = cursor.fetchone()
+		if resp is not None:
+			return VirtualnoNatjecanje(*resp), None
+
+		return None, "Virtual competition does not exist"
+
+	@staticmethod
+	def get_comp_name(cursor, comp_id):
+		## potentially change to slug in the future
+		cursor.execute("""SELECT imenatjecanja
+						FROM natjecanje 
+						WHERE natjecanjeid = %s""", (comp_id,))
+		return cursor.fetchone()[0]

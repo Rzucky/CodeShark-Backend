@@ -103,16 +103,28 @@ def virtual_competition(virt_id = None):
 		if request.method == 'POST':
 			data = request.json
 			virt = VirtualnoNatjecanje.create_virt_competition(conn, cursor, data["broj"], data["korisnickoime"])
-			
+	
 			return {"popis_zadataka": f"{virt.zadaci}",
-					"virt_natjecanje_id":f"{virt.virt_natjecanje_id}"
+					"virt_natjecanje_id":f"{virt.virt_natjecanje_id}",
+					"ime": "Virtual Competition"
 					}, 201
 
 		elif request.method == 'GET':
-			## LOAD AN ALREADY CREATED VIRTUAL COMPETITION
-			# ako nema krepaj
-			return {}
+			## load an already created competition
+			virt, error = VirtualnoNatjecanje.get_virtual_competition(cursor, virt_id)
+			if virt is not None:
+				name = "Virtual Competition"
+				if virt.natjecanje_id is not None:
+					name = "Virtual " + VirtualnoNatjecanje.get_comp_name(cursor, virt.natjecanje_id)
+					## get tasks
 
+				return {
+					"natjecanje_id": virt.natjecanje_id,
+					"zadaci": virt.zadaci,
+					"vrijeme_kreacije": virt.vrijeme_kreacije,
+					"name": name
+				}, 200
+			return {"error" : error}, 400
 
 @app.route('/avatar/<username>', methods=['GET'])
 def avatar(username):
@@ -385,7 +397,7 @@ def login():
 		db_response = cursor.fetchone()
 
 		if db_response is None:
-			return {"error": "Pipeline test - yo ting wong"}, 400
+			return {"error": "Wrong password"}, 400
 
 		#check if user is validated
 		verified = user.check_activated(cursor)
