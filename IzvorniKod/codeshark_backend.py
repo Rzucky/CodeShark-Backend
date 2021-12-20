@@ -6,10 +6,10 @@ from datetime import datetime, timedelta
 import os
 import psycopg2 # apt-get install libpq-dev
 import requests
-import uuid
-import subprocess as subp
 import shlex
+import subprocess as subp
 import time
+import uuid
 
 from classes import Korisnik, Natjecanje, Trofej, VirtualnoNatjecanje, Zadatak, TestPrimjer, UploadRjesenja
 import codeshark_config as cfg
@@ -61,6 +61,21 @@ def get_user(cursor, korisnickoime):
 
 	return None
 
+def format_competitions(cursor, n):
+	competition_list = []
+	comp_list_instances = Natjecanje.get_n_competitions(cursor, n)
+	for comp in comp_list_instances:
+		competition_list.append({
+			"natjecanje_id":		f"{comp.natjecanje_id}",
+			"ime_natjecanja":		f"{comp.ime_natjecanja}",
+			"vrijeme_pocetak":		f"{comp.vrijeme_poc}",
+			"vrijeme_kraj":			f"{comp.vrijeme_kraj}",
+			"slika_trofeja":		f"{comp.slika_trofeja}",
+			"broj_zadataka":		f"{comp.broj_zadatak}",
+			"id_klase_natjecanja":	f"{comp.id_klase_natjecanja}",
+		})
+	
+	return competition_list
 
 def user_trophies(user, cursor):
 	trophies_list = []
@@ -89,29 +104,46 @@ def home():
 				"slug": f"{task.slag}"
 			})
 
-		competition_list = []
-		comp_list_instances = Natjecanje.get_recent_competitions(cursor)
-		for comp in comp_list_instances:
-			competition_list.append({
-				"natjecanje_id":f"{comp.natjecanje_id}",
-				"ime_natjecanja":f"{comp.ime_natjecanja}",
-				"vrijeme_pocetak":f"{comp.vrijeme_poc}",
-				"vrijeme_kraj":f"{comp.vrijeme_kraj}",
-				"slika_trofeja":f"{comp.slika_trofeja}",
-				"broj_zadataka":f"{comp.broj_zadatak}",
-				"id_klase_natjecanja":f"{comp.id_klase_natjecanja}",
-			})
+		competition_list = format_competitions(cursor, 5)
 
 		return {"tasks": task_list,
 				"competitions": competition_list
 				}, 200
 
 
-@app.route('/user/<username>', methods=['GET'])
-def user():
-	## ?? 
-	pass
+@app.route('/competitions', methods=['GET'])
+def competitions():
+	conn, cursor = connect_to_db()
+	with conn, cursor:
+		competition_list = format_competitions(cursor, 50)
+		return {"competitions": competition_list}, 200
 
+@app.route('/competition/<competition_id>', methods=['GET', 'PUT'])
+def competition(competition_id):
+	conn, cursor = connect_to_db()
+	with conn, cursor:
+		if request.method == 'GET':
+			comp, error = Natjecanje.get_competition(cursor, competition_id)
+			if comp is not None:
+				# this needs to be fixed to competition slug and not id 
+				author_name, author_lastname = Zadatak.get_author_name_id(cursor, comp.autor_id)
+
+				return{
+					"natjecanje_id":		f"{comp.natjecanje_id}",
+					"ime_natjecanja":		f"{comp.ime_natjecanja}",
+					"tekst_natjecanja":		f"{comp.tekst_natjecanja}",
+					"ime_prezime_autora":	f"{author_name} {author_lastname}",
+					"vrijeme_poc":			f"{comp.vrijeme_poc}",
+					"vrijeme_kraj":			f"{comp.vrijeme_kraj}",
+					"slika_trofeja":		f"{comp.slika_trofeja}",
+					"trofej_id":			f"{comp.trofej_id}",
+					"broj_zadataka":		f"{comp.broj_zadatak}",
+					"id_klase_natjecanja":	f"{comp.id_klase_natjecanja}"
+				}, 200
+			else:
+				return {"error": error}, 403
+
+	# paziti kod kreiranja natjecanja na rank, PUT method
 
 @app.route('/users', methods=['GET'])
 def users():
@@ -120,9 +152,9 @@ def users():
 		user_list = Korisnik.get_users_asc(cursor)
 		return {"users": user_list}, 200
 
-
-@app.route('/virtual_competition', methods=['GET', 'POST'])
-def virtual_competition():
+@app.route('/virtual_competition/<virt_id>', methods=['GET'])
+@app.route('/virtual_competition', methods=['POST'])
+def virtual_competition(virt_id = None):
 	conn, cursor = connect_to_db()
 	with conn, cursor:
 		if request.method == 'POST':
@@ -130,12 +162,13 @@ def virtual_competition():
 			virt = VirtualnoNatjecanje.create_virt_competition(conn, cursor, data["broj"], data["korisnickoime"])
 			
 			return {"popis_zadataka": f"{virt.zadaci}",
-					"natjecanje_id":f"{virt.natjecanje_id}"
+					"virt_natjecanje_id":f"{virt.virt_natjecanje_id}"
 					}, 201
 
 		elif request.method == 'GET':
 			## LOAD AN ALREADY CREATED VIRTUAL COMPETITION
-			pass
+			# ako nema krepaj
+			return {}
 
 
 @app.route('/avatar/<username>', methods=['GET'])
@@ -444,7 +477,7 @@ def register():
 
 		# default value
 		if data["titula"] == "":
-			data["titula"] = 'amater'
+			data["titula"] = 'tutlek'
 
 		user = Korisnik(data["korisnickoime"],
 						Korisnik.hash_password(data["lozinka"]),

@@ -107,7 +107,6 @@ class Korisnik:
 			lst += [UploadRjesenja(*comp)]
 		return lst
 
-
 class Natjecanje:
 	def __init__(self, natjecanje_id, ime_natjecanja, tekst_natjecanja, vrijeme_kraj, vrijeme_poc, slika_trofeja, broj_zadatak, autor_id, id_klase_natjecanja, trofej_id):
 		self.natjecanje_id = natjecanje_id
@@ -122,17 +121,28 @@ class Natjecanje:
 		self.trofej_id = trofej_id
 
 	@staticmethod
-	def get_recent_competitions(cursor):
+	def get_n_competitions(cursor, n):
 		comp_list = []
 		## needs changing to closest to start
 		cursor.execute("""SELECT * FROM natjecanje
-						ORDER BY natjecanjeid DESC LIMIT 5;""")
+						ORDER BY natjecanjeid DESC LIMIT %s;""", (n,))
 		resp = cursor.fetchall()
 		for comp in resp:
 			comp_ins = Natjecanje(*comp)
 			comp_list.append(comp_ins)
 		
 		return comp_list
+	
+	def get_competition(cursor, comp_id):
+		cursor.execute("""SELECT * FROM natjecanje 
+						WHERE natjecanjeid = %s""", (comp_id,))
+		resp = cursor.fetchone()
+		if resp is not None:
+			comp = Natjecanje(*resp)
+			return comp, None
+		
+		return None, "Competition does not exist"
+		
 
 class Trofej:
 	def __init__(self, trofej_id, ime_trofeja, slika_trofeja):
@@ -198,6 +208,15 @@ class Zadatak:
 
 		return resp[0], resp[1]
 
+	#TODO: needs to be fixed to slug
+	@staticmethod
+	def get_author_name_id(cursor, id):
+		cursor.execute("""SELECT ime, prezime FROM korisnik 
+					WHERE korisnik.korisnikid = %s;""", (id,))	
+		resp = cursor.fetchone()
+
+		return resp[0], resp[1]
+
 	@staticmethod
 	def get_recent_tasks(cursor):
 		task_list = []
@@ -227,8 +246,9 @@ class UploadRjesenja:
 		self.zadatak_id = zadatak_id
 
 class VirtualnoNatjecanje:
-	def __init__(self, virt_natjecanje_id, korisnik_id, natjecanje_id, zadaci):
+	def __init__(self, virt_natjecanje_id, vrijeme_kreacije, korisnik_id, natjecanje_id, zadaci):
 		self.virt_natjecanje_id = virt_natjecanje_id
+		self.vrijeme_kreacije = vrijeme_kreacije
 		self.korisnik_id = korisnik_id
 		self.natjecanje_id = natjecanje_id
 		self.zadaci = zadaci
@@ -237,8 +257,8 @@ class VirtualnoNatjecanje:
 	@staticmethod
 	def create_virt_competition(conn, cursor, n, username):
 		tasks = Zadatak.get_random_tasks(cursor, n)
-		cursor.execute("""INSERT INTO virtnatjecanje (korisnikid, zadaci) 
-						VALUES (
+		cursor.execute("""INSERT INTO virtnatjecanje (vrijemekreacije, korisnikid, zadaci) 
+						VALUES ( NOW(),
 							(SELECT korisnikid FROM korisnik
 								WHERE korisnickoime = %s),
 							%s)
