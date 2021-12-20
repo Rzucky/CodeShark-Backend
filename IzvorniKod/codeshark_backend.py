@@ -76,6 +76,13 @@ def create_competition():
 				})
 			return {"tasks": task_list}, 200
 
+		elif request.method == 'POST':
+			data = dict(request.form)
+			comp_id, error = Natjecanje.create_competition(cursor, data)
+			if comp_id is not None:
+				return {"natjecanje_id": comp_id}, 200
+			return {"error": error}, 400
+
 @app.route('/competition/<competition_id>', methods=['GET', 'PUT'])
 def competition(competition_id):
 	conn, cursor = connect_to_db()

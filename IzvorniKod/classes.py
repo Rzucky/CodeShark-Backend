@@ -208,6 +208,34 @@ class Natjecanje:
 			return resp[0], None
 		return None, "Class name doesn't exist"
 
+	@staticmethod
+	def create_competition(cursor, data):
+		## TODO: change to work with username
+		cursor.execute("""SELECT korisnikid FROM korisnik WHERE korisnickoime = %s;""", (data["username"],))
+		user_id = cursor.fetchone()[0]
+		tasks = data["tasks"]
+		tasks = (tasks[1:-1]).split(',')
+		##TODO: upload trophy pic, save the file, save path to db, take that ID and put here 
+		try:
+			cursor.execute("""INSERT INTO natjecanje(imenatjecanja, tekstnatjecanja, vrijemekraj, 
+													vrijemepoc, slikatrofeja, brojzadataka, 
+													autorid, idklasenatjecanja, trofejid)
+							VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING natjecanjeid""",
+							(data["imenatjecanja"], data["tekstnatjecanja"], data["vrijemekraj"], 
+							data["vrijemepoc"], data["slikatrofeja"], len(tasks),
+							user_id, 1, data["trofejid"],))
+			comp_id = cursor.fetchone()[0]
+			for task_slug in data["tasks"]:
+				cursor.execute("""UPDATE zadatak
+							SET natjecanjeid = %s, 
+								privatnost = false
+							WHERE zadatak.slug= %s;"""
+							,(comp_id, task_slug[1:-1]))
+				## lets ignore possiblity of errors for now
+			return comp_id, None
+		except:
+			return None, "Competition already exists"
+
 class Trofej:
 	def __init__(self, trofej_id, ime_trofeja, slika_trofeja):
 		self.trofej_id = trofej_id
