@@ -72,7 +72,6 @@ class Korisnik:
 		token_timestamp = cursor.fetchone()
 		if token_timestamp is not None:
 			return token_timestamp[0]
-
 		return None
 
 	@staticmethod
@@ -117,7 +116,6 @@ class Korisnik:
 		db_response = cursor.fetchone()
 		if db_response is not None:
 			return True, "Username taken"
-
 		return False, None
 
 	@staticmethod
@@ -129,7 +127,6 @@ class Korisnik:
 			resp = resp[1:-3] 
 			user = Korisnik(*resp)
 			return user
-
 		return None
 
 class Natjecanje:
@@ -152,7 +149,6 @@ class Natjecanje:
 		if resp is not None:
 			comp = Natjecanje(*resp)
 			return comp, None
-		
 		return None, "Competition does not exist"
 
 	@staticmethod
@@ -173,6 +169,7 @@ class Natjecanje:
 		competition_list = []
 		comp_list_instances = Natjecanje.get_n_competitions(cursor, n)
 		for comp in comp_list_instances:
+			comp_class_name, error = Natjecanje.get_class_name_from_class_id(cursor, comp.id_klase_natjecanja)
 			competition_list.append({
 				"natjecanje_id":		f"{comp.natjecanje_id}",
 				"ime_natjecanja":		f"{comp.ime_natjecanja}",
@@ -180,9 +177,9 @@ class Natjecanje:
 				"vrijeme_kraj":			f"{comp.vrijeme_kraj}",
 				"slika_trofeja":		f"{comp.slika_trofeja}",
 				"broj_zadataka":		f"{comp.broj_zadatak}",
-				"id_klase_natjecanja":	f"{comp.id_klase_natjecanja}",
+				"ime_klase_natjecanja":	f"{comp_class_name}",
 			})
-		
+
 		return competition_list
 	
 	@staticmethod
@@ -196,6 +193,16 @@ class Natjecanje:
 			task_slug_list.append(task[0])
 		return task_slug_list
 
+	@staticmethod
+	def get_class_name_from_class_id(cursor, class_id):
+		cursor.execute("""SELECT nazivklasenatjecanja 
+					FROM klasanatjecanja 
+					WHERE idklasenatjecanja = %s""", (class_id,))
+		resp = cursor.fetchone()
+		if resp is not None:
+			return resp[0], None
+		return None, "Class name doesn't exist"
+
 class Trofej:
 	def __init__(self, trofej_id, ime_trofeja, slika_trofeja):
 		self.trofej_id = trofej_id
@@ -204,17 +211,14 @@ class Trofej:
 
 	@staticmethod
 	def user_trophies(cursor, user):
-		trophies_list = []
-
 		cursor.execute("""SELECT trofejid, imetrofeja, slikatrofeja 
 						FROM jeosvojio NATURAL JOIN trofej natural join korisnik 
 						WHERE jeosvojio.korisnikid = korisnik.korisnikid 
 						AND korisnickoime =  %s;""", (user.korisnicko_ime,))
 		trophies = cursor.fetchall()
-
+		trophies_list = []
 		for trophy in trophies:
-			trofej = Trofej(*trophy)
-			trophies_list.append(trofej)
+			trophies_list.append(Trofej(*trophy))
 
 		return trophies_list
 
@@ -345,7 +349,6 @@ class VirtualnoNatjecanje:
 		resp = cursor.fetchone()
 		if resp is not None:
 			return VirtualnoNatjecanje(*resp), None
-
 		return None, "Virtual competition does not exist"
 
 	@staticmethod

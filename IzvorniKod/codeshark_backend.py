@@ -71,7 +71,7 @@ def competition(competition_id):
 				# this needs to be fixed to competition slug and not id 
 				author_name, author_lastname = Zadatak.get_author_name_id(cursor, comp.autor_id)
 				tasks = Natjecanje.get_tasks_in_comp(cursor, comp.natjecanje_id)
-
+				comp_class_name, error = Natjecanje.get_class_name_from_class_id(cursor, comp.id_klase_natjecanja)
 				return{
 					"natjecanje_id":		f"{comp.natjecanje_id}",
 					"ime_natjecanja":		f"{comp.ime_natjecanja}",
@@ -82,7 +82,7 @@ def competition(competition_id):
 					"slika_trofeja":		f"{comp.slika_trofeja}",
 					"trofej_id":			f"{comp.trofej_id}",
 					"broj_zadataka":		f"{comp.broj_zadatak}",
-					"id_klase_natjecanja":	f"{comp.id_klase_natjecanja}",
+					"ime_klase_natjecanja":	f"{comp_class_name}",
 					"zadaci":				tasks
 				}, 200
 			else:
@@ -361,7 +361,8 @@ def members(username):
 
 		elif user.nivou_prava in [2, 3]:	# Voditelj || Admin
 			created_competitions_ins = user.get_created_competitons(cursor)
-			for comp in created_competitions_ins:
+			for comp in created_competitions_ins: #TODO: potential error handling? is it possible?
+				comp_class_name, error = Natjecanje.get_class_name_from_class_id(cursor, comp.id_klase_natjecanja)
 				created_competitions.append({
 					"natjecanje_id":		f"{comp.natjecanje_id}",
 					"ime_natjecanja":		f"{comp.ime_natjecanja}",
@@ -369,7 +370,7 @@ def members(username):
 					"vrijeme_kraj":			f"{comp.vrijeme_kraj}",
 					"slika_trofeja":		f"{comp.slika_trofeja}",
 					"broj_zadataka":		f"{comp.broj_zadatak}",
-					"id_klase_natjecanja":	f"{comp.id_klase_natjecanja}",
+					"ime_klase_natjecanja":	f"{comp_class_name}"
 				})
 
 		return {"ime": user.ime,
@@ -383,7 +384,7 @@ def members(username):
 				"uspjesno_zad": user.solved,
 				"postotak_uspjesnih": correctly_solved,
 				"submitted_tasks": submitted_tasks,
-				"created_competitions": created_competitions,
+				"created_competitions": created_competitions
 				}, 200
 
 @app.route('/login', methods=['POST'])
