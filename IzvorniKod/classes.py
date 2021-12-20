@@ -298,8 +298,22 @@ class Zadatak:
 	def get_recent_tasks(cursor):
 		task_list = []
 		cursor.execute("""SELECT * FROM zadatak 
-					WHERE privatnost=false
+					WHERE privatnost = false
 					ORDER BY zadatakid DESC LIMIT 5;""")
+		resp = cursor.fetchall()
+		for task in resp:
+			task_ins = Zadatak(*task)
+			task_list.append(task_ins)
+		
+		return task_list
+
+	@staticmethod
+	def get_private_tasks(cursor, username):
+		task_list = []
+		cursor.execute("""SELECT zadatak.* FROM zadatak 
+					JOIN korisnik ON(korisnikid = autorid) 
+					WHERE privatnost = true 
+					AND korisnickoime = %s""", (username,))
 		resp = cursor.fetchall()
 		for task in resp:
 			task_ins = Zadatak(*task)

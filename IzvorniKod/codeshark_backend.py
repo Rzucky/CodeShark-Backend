@@ -61,6 +61,21 @@ def competitions():
 		competition_list = Natjecanje.format_competitions(cursor, 50)
 		return {"competitions": competition_list}, 200
 
+@app.route('/create_competition', methods=['GET','POST'])
+def create_competition():
+	conn, cursor = connect_to_db()
+	with conn, cursor:
+		if request.method == 'GET':
+			username = request.headers.get('session')
+			task_list = []
+			task_list_instances = Zadatak.get_private_tasks(cursor, username)
+			for task in task_list_instances:
+				task_list.append({
+					"name": f"{task.ime_zadatka}",
+					"slug": f"{task.slag}"
+				})
+			return {"tasks": task_list}, 200
+
 @app.route('/competition/<competition_id>', methods=['GET', 'PUT'])
 def competition(competition_id):
 	conn, cursor = connect_to_db()
