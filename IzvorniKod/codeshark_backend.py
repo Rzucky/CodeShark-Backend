@@ -35,62 +35,6 @@ def connect_to_db():
 	cursor = conn.cursor()
 	return conn, cursor
 
-# checking for taken username and email
-def check_if_user_exists(cursor, username, email):
-	cursor.execute("SELECT * FROM korisnik WHERE email = %s;", (email,))
-	db_response = cursor.fetchone()
-	if db_response is not None:
-		return True, "email already in use"
-
-	cursor.execute("SELECT * FROM korisnik WHERE korisnickoIme = %s;", (username,))
-	db_response = cursor.fetchone()
-	if db_response is not None:
-		return True, "username taken"
-
-	return False, None
-
-
-def get_user(cursor, korisnickoime):
-	cursor.execute("SELECT * FROM korisnik WHERE korisnickoime = %s;", (korisnickoime,))
-	resp = cursor.fetchone()
-	if resp is not None:
-		# ignore user ID and token related elements
-		resp = resp[1:-3] 
-		user = Korisnik(*resp)
-		return user
-
-	return None
-
-def format_competitions(cursor, n):
-	competition_list = []
-	comp_list_instances = Natjecanje.get_n_competitions(cursor, n)
-	for comp in comp_list_instances:
-		competition_list.append({
-			"natjecanje_id":		f"{comp.natjecanje_id}",
-			"ime_natjecanja":		f"{comp.ime_natjecanja}",
-			"vrijeme_pocetak":		f"{comp.vrijeme_poc}",
-			"vrijeme_kraj":			f"{comp.vrijeme_kraj}",
-			"slika_trofeja":		f"{comp.slika_trofeja}",
-			"broj_zadataka":		f"{comp.broj_zadatak}",
-			"id_klase_natjecanja":	f"{comp.id_klase_natjecanja}",
-		})
-	
-	return competition_list
-
-def user_trophies(user, cursor):
-	trophies_list = []
-
-	cursor.execute("""SELECT trofejid, imetrofeja, slikatrofeja 
-					FROM jeosvojio NATURAL JOIN trofej natural join korisnik 
-					WHERE jeosvojio.korisnikid = korisnik.korisnikid and korisnickoime =  %s;""", (user.korisnicko_ime,))
-	trophies = cursor.fetchall()
-
-	for trophy in trophies:
-		trofej = Trofej(*trophy)
-		trophies_list.append(trofej)
-
-	return trophies_list
-
 @app.route('/', methods=['GET'])
 def home():
 	conn, cursor = connect_to_db()
@@ -104,18 +48,17 @@ def home():
 				"slug": f"{task.slag}"
 			})
 
-		competition_list = format_competitions(cursor, 5)
+		competition_list = Natjecanje.format_competitions(cursor, 5)
 
 		return {"tasks": task_list,
 				"competitions": competition_list
 				}, 200
 
-
 @app.route('/competitions', methods=['GET'])
 def competitions():
 	conn, cursor = connect_to_db()
 	with conn, cursor:
-		competition_list = format_competitions(cursor, 50)
+		competition_list = Natjecanje.format_competitions(cursor, 50)
 		return {"competitions": competition_list}, 200
 
 @app.route('/competition/<competition_id>', methods=['GET', 'PUT'])
@@ -206,7 +149,7 @@ def task(slug):
 		elif request.method == 'POST':
 			data = request.json
 
-			user = get_user(cursor, data["korisnickoime"])
+			user = Korisnik.get_user(cursor, data["korisnickoime"])
 			# can this happen? wrong request?
 			if user is None:
 				return {"error": "user doesn't exist or wrong username"}, 400
@@ -378,19 +321,19 @@ def execute_task():
 def members(username):
 	conn, cursor = connect_to_db()
 	with conn, cursor:
-		user = get_user(cursor, username)
+		user = Korisnik.get_user(cursor, username)
 		if user is None:
 			return {"error": "user doesn't exist or wrong username"}, 400
 	
 		trophies_list = []
-		trophies_list_instances = user_trophies(user, cursor)
+		trophies_list_instances = Trofej.user_trophies(cursor, user)
 		for trophy in trophies_list_instances:
 			trophies_list.append({
 				"name": f"{trophy.ime_trofeja}",
 				"img": 	f"{trophy.slika_trofeja}"
 			})
 
-		correctly_solved 		= user.calc_successfully_solved(cursor)
+		correctly_solved = user.calc_successfully_solved(cursor)
 		
 		submitted_tasks = []
 		created_competitions = []
@@ -405,13 +348,13 @@ def members(username):
 			created_competitions_ins = user.get_created_competitons(cursor)
 			for comp in created_competitions_ins:
 				created_competitions.append({
-					"natjecanje_id":f"{comp.natjecanje_id}",
-					"ime_natjecanja":f"{comp.ime_natjecanja}",
-					"vrijeme_pocetak":f"{comp.vrijeme_poc}",
-					"vrijeme_kraj":f"{comp.vrijeme_kraj}",
-					"slika_trofeja":f"{comp.slika_trofeja}",
-					"broj_zadataka":f"{comp.broj_zadatak}",
-					"id_klase_natjecanja":f"{comp.id_klase_natjecanja}",
+					"natjecanje_id":		f"{comp.natjecanje_id}",
+					"ime_natjecanja":		f"{comp.ime_natjecanja}",
+					"vrijeme_pocetak":		f"{comp.vrijeme_poc}",
+					"vrijeme_kraj":			f"{comp.vrijeme_kraj}",
+					"slika_trofeja":		f"{comp.slika_trofeja}",
+					"broj_zadataka":		f"{comp.broj_zadatak}",
+					"id_klase_natjecanja":	f"{comp.id_klase_natjecanja}",
 				})
 
 		return {"ime": user.ime,
@@ -434,7 +377,7 @@ def login():
 	with conn, cursor:
 		data = request.json
 
-		user = get_user(cursor, data["korisnickoime"])
+		user = Korisnik.get_user(cursor, data["korisnickoime"])
 		if user is None:
 			return {"error": "user doesn't exist or wrong username"}, 400
 
@@ -488,7 +431,7 @@ def register():
 						data["titula"],
 						data["nivouprava"])
 
-		user_existance, error = check_if_user_exists(cursor, user.korisnicko_ime, user.email)
+		user_existance, error = Korisnik.check_if_user_exists(cursor, user.korisnicko_ime, user.email)
 		if user_existance:
 			return {"error": error}, 400
 

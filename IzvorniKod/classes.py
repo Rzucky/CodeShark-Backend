@@ -15,13 +15,6 @@ class Korisnik:
 		cursor.execute("""SELECT korisnikid FROM korisnik WHERE korisnickoime = %s;""", (self.korisnicko_ime,))
 		self.korisnik_id = cursor.fetchone()[0]
 
-
-	def check_activated(self, cursor):
-		cursor.execute("""SELECT aktivan FROM korisnik WHERE korisnickoime = %s;""", (self.korisnicko_ime,))
-		db_response = cursor.fetchone()[0]
-		return db_response
-
-
 	def calc_successfully_solved(self, cursor):
 		self.__get_id(cursor)
 
@@ -51,6 +44,27 @@ class Korisnik:
 			return self.solved / self.attempted
 		else:
 			return 0
+
+	def check_activated(self, cursor):
+		cursor.execute("""SELECT aktivan FROM korisnik WHERE korisnickoime = %s;""", (self.korisnicko_ime,))
+		db_response = cursor.fetchone()[0]
+		return db_response
+
+	def get_created_competitons(self, cursor):
+		cursor.execute("""SELECT natjecanje.* FROM natjecanje NATURAL JOIN korisnik WHERE korisnik.korisnickoime = %s;""", (self.korisnicko_ime,))
+		lst = []
+		for comp in cursor.fetchall():
+			lst += [Natjecanje(*comp)]
+		return lst
+
+	def get_submitted_tasks(self, cursor):
+		self.__get_id(cursor)
+
+		cursor.execute("""SELECT * FROM uploadrjesenja WHERE korisnikid = %s LIMIT 10;""", (self.korisnik_id,))
+		lst = []
+		for comp in cursor.fetchall():
+			lst += [UploadRjesenja(*comp)]
+		return lst
 
 	@staticmethod
 	def get_token_time(cursor, token):
@@ -91,21 +105,32 @@ class Korisnik:
 			})
 		return user_list
 
-	def get_created_competitons(self, cursor):
-		cursor.execute("""SELECT natjecanje.* FROM natjecanje NATURAL JOIN korisnik WHERE korisnik.korisnickoime = %s;""", (self.korisnicko_ime,))
-		lst = []
-		for comp in cursor.fetchall():
-			lst += [Natjecanje(*comp)]
-		return lst
+	@staticmethod
+	def check_if_user_exists(cursor, username, email):
+		# checking for taken username and email
+		cursor.execute("SELECT * FROM korisnik WHERE email = %s;", (email,))
+		db_response = cursor.fetchone()
+		if db_response is not None:
+			return True, "Email already in use"
 
-	def get_submitted_tasks(self, cursor):
-		self.__get_id(cursor)
+		cursor.execute("SELECT * FROM korisnik WHERE korisnickoIme = %s;", (username,))
+		db_response = cursor.fetchone()
+		if db_response is not None:
+			return True, "Username taken"
 
-		cursor.execute("""SELECT * FROM uploadrjesenja WHERE korisnikid = %s LIMIT 10;""", (self.korisnik_id,))
-		lst = []
-		for comp in cursor.fetchall():
-			lst += [UploadRjesenja(*comp)]
-		return lst
+		return False, None
+
+	@staticmethod
+	def get_user(cursor, username):
+		cursor.execute("SELECT * FROM korisnik WHERE korisnickoime = %s;", (username,))
+		resp = cursor.fetchone()
+		if resp is not None:
+			# ignore user ID and token related elements
+			resp = resp[1:-3] 
+			user = Korisnik(*resp)
+			return user
+
+		return None
 
 class Natjecanje:
 	def __init__(self, natjecanje_id, ime_natjecanja, tekst_natjecanja, vrijeme_kraj, vrijeme_poc, slika_trofeja, broj_zadatak, autor_id, id_klase_natjecanja, trofej_id):
@@ -120,6 +145,16 @@ class Natjecanje:
 		self.id_klase_natjecanja = id_klase_natjecanja
 		self.trofej_id = trofej_id
 
+	def get_competition(cursor, comp_id):
+		cursor.execute("""SELECT * FROM natjecanje 
+						WHERE natjecanjeid = %s""", (comp_id,))
+		resp = cursor.fetchone()
+		if resp is not None:
+			comp = Natjecanje(*resp)
+			return comp, None
+		
+		return None, "Competition does not exist"
+
 	@staticmethod
 	def get_n_competitions(cursor, n):
 		comp_list = []
@@ -132,23 +167,46 @@ class Natjecanje:
 			comp_list.append(comp_ins)
 		
 		return comp_list
-	
-	def get_competition(cursor, comp_id):
-		cursor.execute("""SELECT * FROM natjecanje 
-						WHERE natjecanjeid = %s""", (comp_id,))
-		resp = cursor.fetchone()
-		if resp is not None:
-			comp = Natjecanje(*resp)
-			return comp, None
+
+	@staticmethod
+	def format_competitions(cursor, n):
+		competition_list = []
+		comp_list_instances = Natjecanje.get_n_competitions(cursor, n)
+		for comp in comp_list_instances:
+			competition_list.append({
+				"natjecanje_id":		f"{comp.natjecanje_id}",
+				"ime_natjecanja":		f"{comp.ime_natjecanja}",
+				"vrijeme_pocetak":		f"{comp.vrijeme_poc}",
+				"vrijeme_kraj":			f"{comp.vrijeme_kraj}",
+				"slika_trofeja":		f"{comp.slika_trofeja}",
+				"broj_zadataka":		f"{comp.broj_zadatak}",
+				"id_klase_natjecanja":	f"{comp.id_klase_natjecanja}",
+			})
 		
-		return None, "Competition does not exist"
-		
+		return competition_list
+
 
 class Trofej:
 	def __init__(self, trofej_id, ime_trofeja, slika_trofeja):
 		self.trofej_id = trofej_id
 		self.ime_trofeja = ime_trofeja
 		self.slika_trofeja = slika_trofeja
+
+	@staticmethod
+	def user_trophies(cursor, user):
+		trophies_list = []
+
+		cursor.execute("""SELECT trofejid, imetrofeja, slikatrofeja 
+						FROM jeosvojio NATURAL JOIN trofej natural join korisnik 
+						WHERE jeosvojio.korisnikid = korisnik.korisnikid 
+						AND korisnickoime =  %s;""", (user.korisnicko_ime,))
+		trophies = cursor.fetchall()
+
+		for trophy in trophies:
+			trofej = Trofej(*trophy)
+			trophies_list.append(trofej)
+
+		return trophies_list
 
 class Zadatak:
 	def __init__(self, zadatak_id, ime_zadatka, bodovi, max_vrijeme_izvrsavanja, tekst_zadatka, privatnost, slag, autor_id, natjecanje_id):
@@ -253,7 +311,6 @@ class VirtualnoNatjecanje:
 		self.natjecanje_id = natjecanje_id
 		self.zadaci = zadaci
 	
-
 	@staticmethod
 	def create_virt_competition(conn, cursor, n, username):
 		tasks = Zadatak.get_random_tasks(cursor, n)
@@ -267,8 +324,5 @@ class VirtualnoNatjecanje:
 		conn.commit()
 
 		cursor.execute("""SELECT * from virtnatjecanje WHERE virtnatjecanjeid = %s""", (resp,))
-		virt = VirtualnoNatjecanje( *(cursor.fetchone()))
 		
-		return virt
-
-		
+		return VirtualnoNatjecanje( *(cursor.fetchone()))
