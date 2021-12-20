@@ -395,7 +395,7 @@ def login():
 
 		user = Korisnik.get_user(cursor, data["korisnickoime"])
 		if user is None:
-			return {"error": "user doesn't exist or wrong username"}, 400
+			return {"error": "User doesn't exist or wrong username"}, 400
 
 		cursor.execute("""SELECT * from korisnik WHERE korisnickoime = %s AND lozinka = %s""", (user.korisnicko_ime,  Korisnik.hash_password(data["lozinka"]),))
 		db_response = cursor.fetchone()
@@ -408,7 +408,9 @@ def login():
 		if not verified:
 			return {"error": "User is not activated"}, 401
 
-		return {"data": "successfully logged in"}, 200
+		return {"status": "Successfully logged in",
+				"rank": user.nivou_prava
+				}, 200
 
 @app.route('/validate/<token>', methods=['GET'])
 def validate(token):
