@@ -46,12 +46,16 @@ class Korisnik:
 			return 0
 
 	def check_activated(self, cursor):
-		cursor.execute("""SELECT aktivan FROM korisnik WHERE korisnickoime = %s;""", (self.korisnicko_ime,))
+		cursor.execute("""SELECT aktivan FROM korisnik 
+					WHERE korisnickoime = %s;""", (self.korisnicko_ime,))
 		db_response = cursor.fetchone()[0]
 		return db_response
 
 	def get_created_competitons(self, cursor):
-		cursor.execute("""SELECT natjecanje.* FROM natjecanje NATURAL JOIN korisnik WHERE korisnik.korisnickoime = %s;""", (self.korisnicko_ime,))
+		cursor.execute("""SELECT natjecanje.* 
+					FROM natjecanje JOIN korisnik 
+					ON(korisnikid = autorid) 
+					WHERE korisnik.korisnickoime =  %s;""", (self.korisnicko_ime,))
 		lst = []
 		for comp in cursor.fetchall():
 			lst += [Natjecanje(*comp)]
@@ -60,7 +64,8 @@ class Korisnik:
 	def get_submitted_tasks(self, cursor):
 		self.__get_id(cursor)
 
-		cursor.execute("""SELECT * FROM uploadrjesenja WHERE korisnikid = %s LIMIT 10;""", (self.korisnik_id,))
+		cursor.execute("""SELECT * FROM uploadrjesenja 
+					WHERE korisnikid = %s LIMIT 10;""", (self.korisnik_id,))
 		lst = []
 		for comp in cursor.fetchall():
 			lst += [UploadRjesenja(*comp)]
