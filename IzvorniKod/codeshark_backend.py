@@ -385,7 +385,7 @@ def login():
 		db_response = cursor.fetchone()
 
 		if db_response is None:
-			return {"error": "wrong password"}, 400
+			return {"error": "Pipeline test - yo ting wong"}, 400
 
 		#check if user is validated
 		verified = user.check_activated(cursor)
