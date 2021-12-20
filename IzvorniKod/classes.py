@@ -184,6 +184,17 @@ class Natjecanje:
 			})
 		
 		return competition_list
+	
+	@staticmethod
+	def get_tasks_in_comp(cursor, comp_id):
+		cursor.execute("""SELECT slug FROM zadatak
+						JOIN natjecanje USING(natjecanjeid) 
+						WHERE zadatak.natjecanjeid = %s""", (comp_id,))
+		resp = cursor.fetchall()
+		task_slug_list = []
+		for task in resp:
+			task_slug_list.append(task[0])
+		return task_slug_list
 
 class Trofej:
 	def __init__(self, trofej_id, ime_trofeja, slika_trofeja):
@@ -339,17 +350,15 @@ class VirtualnoNatjecanje:
 
 	@staticmethod
 	def get_comp_data_for_virtual(cursor, comp_id):
-	#def get_comp_name(cursor, comp_id):
-		## potentially change to slug in the future
+	## potentially change to slug in the future
 		cursor.execute("""	SELECT slug, imenatjecanja
 							FROM virtnatjecanje
 								NATURAL JOIN natjecanje
 								JOIN zadatak
 									USING(natjecanjeid)
 							WHERE natjecanjeid = %s;""", (comp_id,))
-
 		res = cursor.fetchall()
-		if len(res) == 0:
-			return tuple(), None
-		else:
+
+		if len(res):
 			return tuple([i[0] for i in res]), res[0][1]
+		return tuple(), None

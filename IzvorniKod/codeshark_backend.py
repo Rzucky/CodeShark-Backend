@@ -70,6 +70,7 @@ def competition(competition_id):
 			if comp is not None:
 				# this needs to be fixed to competition slug and not id 
 				author_name, author_lastname = Zadatak.get_author_name_id(cursor, comp.autor_id)
+				tasks = Natjecanje.get_tasks_in_comp(cursor, comp.natjecanje_id)
 
 				return{
 					"natjecanje_id":		f"{comp.natjecanje_id}",
@@ -81,7 +82,8 @@ def competition(competition_id):
 					"slika_trofeja":		f"{comp.slika_trofeja}",
 					"trofej_id":			f"{comp.trofej_id}",
 					"broj_zadataka":		f"{comp.broj_zadatak}",
-					"id_klase_natjecanja":	f"{comp.id_klase_natjecanja}"
+					"id_klase_natjecanja":	f"{comp.id_klase_natjecanja}",
+					"zadaci":				tasks
 				}, 200
 			else:
 				return {"error": error}, 403
@@ -95,12 +97,6 @@ def users():
 		user_list = Korisnik.get_users_asc(cursor)
 		return {"users": user_list}, 200
 
-@app.route('/virtual_competitionxd/<virt_id>', methods=['GET'])
-def virtual_competition(virt_id):
-	conn, cursor = connect_to_db()
-	with conn, cursor:
-
-
 @app.route('/virtual_competition/<virt_id>', methods=['GET'])
 @app.route('/virtual_competition', methods=['POST'])
 def virtual_competition(virt_id = None):
@@ -109,26 +105,19 @@ def virtual_competition(virt_id = None):
 		if request.method == 'POST':
 			data = request.json
 			virt = VirtualnoNatjecanje.create_virt_competition(conn, cursor, data["broj"], data["korisnickoime"])
-	
+			## currently does not work, needs slugs insted of id_s
 			return {"popis_zadataka": f"{virt.zadaci}",
 					"virt_natjecanje_id":f"{virt.virt_natjecanje_id}",
 					"ime": "Virtual Competition"
 					}, 201
 
 		elif request.method == 'GET':
-			## load an already created competition
+			# load an already created competition
 			virt, error = VirtualnoNatjecanje.get_virtual_competition(cursor, virt_id)
 			if virt is not None:
 				name = "Virtual Competition"
 				if virt.natjecanje_id is not None:
-					#name = "Virtual " + VirtualnoNatjecanje.get_comp_name(cursor, virt.natjecanje_id)
-					## get tasks
-					# cursor.execute("""	SELECT slug, imenatjecanja
-					# 					FROM virtnatjecanje
-					# 						NATURAL JOIN natjecanje
-					# 						JOIN zadatak USING(natjecanjeid)
-					# 					WHERE natjecanjeid = %s;""", (virt.natjecanje_id,))
-					# virt.zadaci = cursor.fetchall()
+					# getting tasks
 					virt.zadaci, name = VirtualnoNatjecanje.get_comp_data_for_virtual(cursor, virt_id)
 					name = f"Virtual {name}"
 
