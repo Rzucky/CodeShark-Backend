@@ -127,10 +127,11 @@ def virtual_competition(virt_id = None):
 		if request.method == 'POST':
 			data = request.json
 			virt = VirtualnoNatjecanje.create_virt_competition(conn, cursor, data["broj"], data["korisnickoime"])
-			## currently does not work, needs slugs insted of id_s
-			return {"popis_zadataka": f"{virt.zadaci}",
-					"virt_natjecanje_id":f"{virt.virt_natjecanje_id}",
-					"ime": "Virtual Competition"
+			task_list = VirtualnoNatjecanje.get_slugs_from_ids_from_virt(cursor, virt.virt_natjecanje_id)
+			
+			return {"popis_zadataka": 		task_list,
+					"virt_natjecanje_id":	f"{virt.virt_natjecanje_id}",
+					"ime": 					"Virtual Competition"
 					}, 201
 
 		elif request.method == 'GET':
@@ -144,12 +145,12 @@ def virtual_competition(virt_id = None):
 					name = f"Virtual {name}"
 
 				return {
-					"natjecanje_id": virt.natjecanje_id,
-					"zadaci": virt.zadaci,
-					"vrijeme_kreacije": virt.vrijeme_kreacije,
-					"name": name
+					"natjecanje_id":	virt.natjecanje_id,
+					"zadaci":			virt.zadaci,
+					"vrijeme_kreacije":	virt.vrijeme_kreacije,
+					"name": 			name
 				}, 200
-			return {"error" : error}, 400
+			return {"error": error}, 400
 
 @app.route('/avatar/<username>', methods=['GET'])
 def avatar(username):

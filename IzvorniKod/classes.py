@@ -189,9 +189,9 @@ class Natjecanje:
 	
 	@staticmethod
 	def get_tasks_in_comp(cursor, comp_id):
-		cursor.execute("""SELECT slug FROM zadatak
-						JOIN natjecanje USING(natjecanjeid) 
-						WHERE zadatak.natjecanjeid = %s""", (comp_id,))
+		cursor.execute("""SELECT slug 
+					FROM zadatak JOIN natjecanje USING(natjecanjeid) 
+					WHERE zadatak.natjecanjeid = %s""", (comp_id,))
 		resp = cursor.fetchall()
 		task_slug_list = []
 		for task in resp:
@@ -401,7 +401,7 @@ class VirtualnoNatjecanje:
 	@staticmethod
 	def get_comp_data_for_virtual(cursor, comp_id):
 	## potentially change to slug in the future
-		cursor.execute("""	SELECT slug, imenatjecanja
+		cursor.execute("""SELECT slug, imenatjecanja
 							FROM virtnatjecanje
 								NATURAL JOIN natjecanje
 								JOIN zadatak
@@ -412,3 +412,17 @@ class VirtualnoNatjecanje:
 		if len(res):
 			return tuple([i[0] for i in res]), res[0][1]
 		return tuple(), None
+	
+	@staticmethod
+	def get_slugs_from_ids_from_virt(cursor, virt_id):
+		cursor.execute("""SELECT slug
+						FROM zadatak	
+						WHERE zadatakid IN(SELECT unnest(zadaci)
+											FROM virtnatjecanje
+											WHERE virtnatjecanjeid = %s)"""
+											,(virt_id,))
+		resp = cursor.fetchall()
+		task_slug_list = []
+		for task in resp:
+			task_slug_list.append(task[0])
+		return task_slug_list
