@@ -187,6 +187,7 @@ class Natjecanje:
 
 		return competition_list
 	
+	# list of tasks in a competition
 	@staticmethod
 	def get_tasks_in_comp(cursor, comp_id):
 		cursor.execute("""SELECT slug 
@@ -207,6 +208,13 @@ class Natjecanje:
 		if resp is not None:
 			return resp[0], None
 		return None, "Class name doesn't exist"
+
+	# @staticmethod
+	# def get_task_ids_in_comp(cursor, comp_id):
+	# 	cursor.execute("""SELECT zadatakid 
+	# 				FROM zadatak 
+	# 				WHERE natjecanjeid = %s""",(comp_id,))
+	# 	return [i[0] for i in cursor.fetchall()]
 
 	@staticmethod
 	def create_competition(cursor, data):
@@ -231,7 +239,7 @@ class Natjecanje:
 								privatnost = false
 							WHERE zadatak.slug= %s;"""
 							,(comp_id, task_slug[1:-1]))
-				## lets ignore possiblity of errors for now
+				## lets ignore possiblities of errors for now
 			return comp_id, None
 		except:
 			return None, "Competition already exists"
@@ -399,14 +407,24 @@ class VirtualnoNatjecanje:
 		return None, "Virtual competition does not exist"
 
 	@staticmethod
-	def get_comp_data_for_virtual(cursor, comp_id):
+	def get_virt_comps_from_user(cursor, username):
+		cursor.execute("""SELECT virtnatjecanjeid, natjecanjeid 
+					FROM virtnatjecanje 
+					JOIN korisnik USING(korisnikid) 
+					WHERE korisnickoime = %s""", (username,))
+		virt_list = []
+		resp = cursor.fetchall()
+		for virt in resp:
+			virt_list.append(virt)
+		return virt_list
+
+	@staticmethod
+	def get_comp_data_for_virtual_real_comp(cursor, comp_id):
 	## potentially change to slug in the future
 		cursor.execute("""SELECT slug, imenatjecanja
-							FROM virtnatjecanje
-								NATURAL JOIN natjecanje
-								JOIN zadatak
-									USING(natjecanjeid)
-							WHERE natjecanjeid = %s;""", (comp_id,))
+						FROM natjecanje JOIN zadatak
+						USING(natjecanjeid)
+						WHERE natjecanjeid = %s;""", (comp_id,))
 		res = cursor.fetchall()
 
 		if len(res):
@@ -426,3 +444,15 @@ class VirtualnoNatjecanje:
 		for task in resp:
 			task_slug_list.append(task[0])
 		return task_slug_list
+	
+	@staticmethod
+	def insert_real_into_virt(cursor, username, comp_id):
+		## TODO: dont use userid
+		cursor.execute("""SELECT korisnikid FROM korisnik WHERE korisnickoime = %s;""", (username,))
+		user_id = cursor.fetchone()[0]
+		cursor.execute("""INSERT INTO virtnatjecanje
+					(vrijemekreacije,korisnikid,natjecanjeid)
+					VALUES(NOW(), %s, %s) RETURNING virtnatjecanjeid;"""
+					,(user_id, comp_id,))
+		return cursor.fetchone()[0]
+		

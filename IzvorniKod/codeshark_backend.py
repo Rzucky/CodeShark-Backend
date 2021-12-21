@@ -119,20 +119,49 @@ def users():
 		user_list = Korisnik.get_users_asc(cursor)
 		return {"users": user_list}, 200
 
+@app.route('/virtual_competitions', methods=['GET'])
+def virtual_competitions():
+	conn, cursor = connect_to_db()
+	with conn, cursor:
+		username = request.headers.get('session')
+		virt_list_data = VirtualnoNatjecanje.get_virt_comps_from_user(cursor, username)
+		virt_list = []
+		for virt in virt_list_data:
+			if virt[1] is None:
+				slugs = VirtualnoNatjecanje.get_slugs_from_ids_from_virt(cursor, virt[0])
+				virt_list.append({"tasks": slugs,
+								"name": "Virtual Competition"})
+			else:
+				slugs, name = VirtualnoNatjecanje.get_comp_data_for_virtual_real_comp(cursor, virt[1])
+				virt_list.append({"tasks": slugs,
+								"name": f"Virtual {name}"})
+
+		return {"virtual_competitions": virt_list}, 200
+
+@app.route('/virtual_competition/<id_real_comp>', methods=['POST'])
 @app.route('/virtual_competition/<virt_id>', methods=['GET'])
 @app.route('/virtual_competition', methods=['POST'])
-def virtual_competition(virt_id = None):
+def virtual_competition(virt_id = None, id_real_comp = None):
 	conn, cursor = connect_to_db()
 	with conn, cursor:
 		if request.method == 'POST':
-			data = request.json
-			virt = VirtualnoNatjecanje.create_virt_competition(conn, cursor, data["broj"], data["korisnickoime"])
-			task_list = VirtualnoNatjecanje.get_slugs_from_ids_from_virt(cursor, virt.virt_natjecanje_id)
-			
-			return {"popis_zadataka": 		task_list,
-					"virt_natjecanje_id":	f"{virt.virt_natjecanje_id}",
-					"ime": 					"Virtual Competition"
-					}, 201
+			username = request.headers.get('session')
+			# creates a virtual competition from a real one
+			if id_real_comp is not None:
+				virtual_id = VirtualnoNatjecanje.insert_real_into_virt(cursor, username, id_real_comp)	
+				return {"status": "Successfully created virtual competition from a real one",
+						"virtual_id": f"{virtual_id}"
+						}, 200
+			else:
+				# creates a virtual competition with random tasks
+				data = request.json
+				virt = VirtualnoNatjecanje.create_virt_competition(conn, cursor, data["broj"], username)
+				task_list = VirtualnoNatjecanje.get_slugs_from_ids_from_virt(cursor, virt.virt_natjecanje_id)
+				
+				return {"tasks": 		task_list,
+						"virt_comp_id":	f"{virt.virt_natjecanje_id}",
+						"name": 		"Virtual Competition"
+						}, 201
 
 		elif request.method == 'GET':
 			# load an already created competition
@@ -141,13 +170,13 @@ def virtual_competition(virt_id = None):
 				name = "Virtual Competition"
 				if virt.natjecanje_id is not None:
 					# getting tasks
-					virt.zadaci, name = VirtualnoNatjecanje.get_comp_data_for_virtual(cursor, virt_id)
+					virt.zadaci, name = VirtualnoNatjecanje.get_comp_data_for_virtual_real_comp(cursor, virt.natjecanje_id)
 					name = f"Virtual {name}"
 
 				return {
 					"natjecanje_id":	virt.natjecanje_id,
-					"zadaci":			virt.zadaci,
-					"vrijeme_kreacije":	virt.vrijeme_kreacije,
+					"tasks":			virt.zadaci,
+					"created_at":		virt.vrijeme_kreacije,
 					"name": 			name
 				}, 200
 			return {"error": error}, 400
