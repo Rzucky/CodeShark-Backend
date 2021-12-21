@@ -439,6 +439,55 @@ def members(username):
 				"created_competitions": created_competitions
 				}, 200
 
+@app.route('/edit_profile', methods=['POST'])
+def edit_profile():
+	conn, cursor = connect_to_db()
+	with conn, cursor:
+		data = dict(request.form)
+
+		if "fromuser" not in data:
+			return {"error": "user requesting edit not specified"}, 400
+
+		# TODO: Beta
+		# try:
+		# 	# Accept image from form
+		# 	if "slikaprofila" in request.files:
+		# 		file = request.files["slikaprofila"]
+		# 		if file.filename != "":
+		# 			fpath = os.path.join(app.config["UPLOAD_FOLDER"],
+		# 								secure_filename(f"pfp_{Korisnik.hash_pfp_filename(data['slikaprofila'])}"))
+		# 			file_ext = file.filename.split('.')[-1]
+		# 			file.save(f"{fpath}.{file_ext}")
+		# except Exception as e:
+		# 	pass
+
+		cursor.execute("""UPDATE korisnik
+							SET ime = %s,
+								prezime = %s
+							WHERE korisnickoime = %s;""", (data["ime"],
+															data["prezime"],
+															data["fromuser"]))
+
+		cursor.execute("""SELECT nivouprava
+							FROM korisnik
+							WHERE korisnickoime = %s;""", (data["fromuser"],))
+
+		if cursor.fetchone()[0] == 3: # Only admin
+			cursor.execute("""UPDATE korisnik
+								SET email = %s,
+									nivouprava = %s,
+									korisnickoime = %s,
+									lozinka = %s
+								WHERE korisnickoime = %s;""", (data["email"],
+																data["rank"],
+																data["korisnickoime"],
+																data["lozinka"],
+																data["fromuser"]))
+
+		conn.commit()
+
+		return {"status": "profile changes accepted"}, 200
+
 @app.route('/login', methods=['POST'])
 def login():
 	conn, cursor = connect_to_db()
