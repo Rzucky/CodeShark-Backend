@@ -416,9 +416,6 @@ def profile(username):
 					## all in one query?
 					"task_name": f"{task_name}"
 				})
-				task = task.__dict__
-				del task["korisnik_id"]
-				submitted_solutions.append(task)
 
 		elif user.nivou_prava in [2, 3]:	# Voditelj || Admin
 			created_competitions_ins = user.get_created_competitons(cursor)
