@@ -1,6 +1,6 @@
 import hashlib
 
-class Korisnik:
+class User:
 	def __init__(self, korisnicko_ime, lozinka, slika_profila, ime, prezime, email, titula = 'amater', nivou_prava = 1):
 		self.korisnicko_ime = korisnicko_ime
 		self.lozinka = lozinka
@@ -58,17 +58,17 @@ class Korisnik:
 					WHERE korisnik.korisnickoime =  %s;""", (self.korisnicko_ime,))
 		lst = []
 		for comp in cursor.fetchall():
-			lst += [Natjecanje(*comp)]
+			lst += [Competition(*comp)]
 		return lst
 
-	def get_submitted_tasks(self, cursor):
+	def get_submitted_solutions(self, cursor):
 		self.__get_id(cursor)
 
 		cursor.execute("""SELECT * FROM uploadrjesenja 
 					WHERE korisnikid = %s LIMIT 10;""", (self.korisnik_id,))
 		lst = []
 		for comp in cursor.fetchall():
-			lst += [UploadRjesenja(*comp)]
+			lst += [UploadedSolution(*comp)]
 		return lst
 
 	@staticmethod
@@ -130,11 +130,11 @@ class Korisnik:
 		if resp is not None:
 			# ignore user ID and token related elements
 			resp = resp[1:-3] 
-			user = Korisnik(*resp)
+			user = User(*resp)
 			return user
 		return None
 
-class Natjecanje:
+class Competition:
 	def __init__(self, natjecanje_id, ime_natjecanja, tekst_natjecanja, vrijeme_kraj, vrijeme_poc, slika_trofeja, broj_zadatak, autor_id, id_klase_natjecanja, trofej_id):
 		self.natjecanje_id = natjecanje_id
 		self.ime_natjecanja = ime_natjecanja
@@ -152,7 +152,7 @@ class Natjecanje:
 						WHERE natjecanjeid = %s""", (comp_id,))
 		resp = cursor.fetchone()
 		if resp is not None:
-			comp = Natjecanje(*resp)
+			comp = Competition(*resp)
 			return comp, None
 		return None, "Competition does not exist"
 
@@ -164,7 +164,7 @@ class Natjecanje:
 						ORDER BY natjecanjeid DESC LIMIT %s;""", (n,))
 		resp = cursor.fetchall()
 		for comp in resp:
-			comp_ins = Natjecanje(*comp)
+			comp_ins = Competition(*comp)
 			comp_list.append(comp_ins)
 		
 		return comp_list
@@ -172,9 +172,9 @@ class Natjecanje:
 	@staticmethod
 	def format_competitions(cursor, n):
 		competition_list = []
-		comp_list_instances = Natjecanje.get_n_competitions(cursor, n)
+		comp_list_instances = Competition.get_n_competitions(cursor, n)
 		for comp in comp_list_instances:
-			comp_class_name, error = Natjecanje.get_class_name_from_class_id(cursor, comp.id_klase_natjecanja)
+			comp_class_name, error = Competition.get_class_name_from_class_id(cursor, comp.id_klase_natjecanja)
 			competition_list.append({
 				"natjecanje_id":		f"{comp.natjecanje_id}",
 				"ime_natjecanja":		f"{comp.ime_natjecanja}",
@@ -244,7 +244,7 @@ class Natjecanje:
 		except:
 			return None, "Competition already exists"
 
-class Trofej:
+class Trophy:
 	def __init__(self, trofej_id, ime_trofeja, slika_trofeja):
 		self.trofej_id = trofej_id
 		self.ime_trofeja = ime_trofeja
@@ -259,11 +259,11 @@ class Trofej:
 		trophies = cursor.fetchall()
 		trophies_list = []
 		for trophy in trophies:
-			trophies_list.append(Trofej(*trophy))
+			trophies_list.append(Trophy(*trophy))
 
 		return trophies_list
 
-class Zadatak:
+class Task:
 	def __init__(self, zadatak_id, ime_zadatka, bodovi, max_vrijeme_izvrsavanja, tekst_zadatka, privatnost, slag, autor_id, natjecanje_id):
 		self.zadatak_id = zadatak_id
 		self.ime_zadatka = ime_zadatka
@@ -282,7 +282,7 @@ class Zadatak:
 		tasks = cursor.fetchall()
 
 		for task in tasks:
-			task_ins = Zadatak(*task)
+			task_ins = Task(*task)
 			public_tasks.append(task_ins)
 
 		return public_tasks		
@@ -302,7 +302,7 @@ class Zadatak:
 		cursor.execute("""SELECT * FROM zadatak WHERE slug = %s;""", (slug,))
 		resp = cursor.fetchone()
 		if resp is not None:
-			task = Zadatak(*resp)
+			task = Task(*resp)
 			if task.privatnost == True:
 				# we won't give info if the task is private or not
 				return None, "Task does not exist"
@@ -338,7 +338,7 @@ class Zadatak:
 					ORDER BY zadatakid DESC LIMIT 5;""")
 		resp = cursor.fetchall()
 		for task in resp:
-			task_ins = Zadatak(*task)
+			task_ins = Task(*task)
 			task_list.append(task_ins)
 		
 		return task_list
@@ -352,18 +352,25 @@ class Zadatak:
 					AND korisnickoime = %s""", (username,))
 		resp = cursor.fetchall()
 		for task in resp:
-			task_ins = Zadatak(*task)
+			task_ins = Task(*task)
 			task_list.append(task_ins)
 		
 		return task_list
 
-class TestPrimjer:
+	# used at profile page to show the name
+	@staticmethod
+	def get_task_name(cursor, id):
+		cursor.execute("""SELECT imezadatka FROM zadatak
+						WHERE zadatakid = %s""", (id,))
+		return cursor.fetchone()[0]		
+
+class TestCase:
 	def __init__(self, ulaz, izlaz, zadatak_id):
 		self.ulaz = ulaz
 		self.izlaz = izlaz
 		self.zadatak_id = zadatak_id
 
-class UploadRjesenja:
+class UploadedSolution:
 	def __init__(self, predano_rjesenje, prolaznost, vrijeme_predaje, prosj_vrijeme_izvrsenja, korisnik_id, zadatak_id):
 		self.predano_rjesenje = predano_rjesenje
 		self.prolaznost = prolaznost
@@ -372,7 +379,7 @@ class UploadRjesenja:
 		self.korisnik_id = korisnik_id
 		self.zadatak_id = zadatak_id
 
-class VirtualnoNatjecanje:
+class VirtualCompetition:
 	def __init__(self, virt_natjecanje_id, vrijeme_kreacije, korisnik_id, natjecanje_id, zadaci):
 		self.virt_natjecanje_id = virt_natjecanje_id
 		self.vrijeme_kreacije = vrijeme_kreacije
@@ -382,7 +389,7 @@ class VirtualnoNatjecanje:
 	
 	@staticmethod
 	def create_virt_competition(conn, cursor, n, username):
-		tasks = Zadatak.get_random_tasks(cursor, n)
+		tasks = Task.get_random_tasks(cursor, n)
 		cursor.execute("""INSERT INTO virtnatjecanje (vrijemekreacije, korisnikid, zadaci) 
 						VALUES ( NOW(),
 							(SELECT korisnikid FROM korisnik
@@ -394,7 +401,7 @@ class VirtualnoNatjecanje:
 
 		cursor.execute("""SELECT * from virtnatjecanje WHERE virtnatjecanjeid = %s""", (resp,))
 		
-		return VirtualnoNatjecanje( *(cursor.fetchone()))
+		return VirtualCompetition( *(cursor.fetchone()))
 
 	@staticmethod
 	def get_virtual_competition(cursor, virtual_id):
@@ -403,7 +410,7 @@ class VirtualnoNatjecanje:
 						WHERE virtnatjecanjeid = %s""", (virtual_id,))
 		resp = cursor.fetchone()
 		if resp is not None:
-			return VirtualnoNatjecanje(*resp), None
+			return VirtualCompetition(*resp), None
 		return None, "Virtual competition does not exist"
 
 	@staticmethod
