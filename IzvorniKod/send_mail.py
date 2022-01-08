@@ -1,18 +1,21 @@
-import smtplib
+import smtplib, ssl
 from email.mime.text import MIMEText
 
 import codeshark_config as cfg
 
 cfg.load_config()
 
-url 	 = cfg.get_config("mail_url")
-username = cfg.get_config("mailtrap_user")
-password = cfg.get_config("mailtrap_pass")
+url 	 	= cfg.get_config("mail_url")
+username 	= cfg.get_config("mail_username")
+password	= cfg.get_config("mail_password")
+smtp_server = cfg.get_config("smtp_server")
+smtp_port 	= cfg.get_config("smtp_port")
+
+# Create a secure SSL context
+context = ssl.create_default_context()
 
 # currently sending to MailTrap for testing
 def send_verification_mail(ime, prezime, email, token):
-	sender = "CodeShark <noreply@domefan.club>"
-	receiver = f"{ime} {prezime} <{email}>"
 
 	message = f"""<h2>Welcome {ime} {prezime}!</h2></br>
 	Thank you for signing up to CodeShark!</br>
@@ -22,9 +25,11 @@ def send_verification_mail(ime, prezime, email, token):
 
 	msg = MIMEText(message, 'html')
 	msg['Subject'] = 'CodeShark Mail Verification'
-	msg['From'] = sender
-	msg['To'] = receiver
-
-	with smtplib.SMTP("smtp.mailtrap.io", 2525) as server:
+	msg['From'] = username
+	msg['To'] = email
+	
+	# this is considered secure
+	with smtplib.SMTP(smtp_server, smtp_port) as server:
+		server.starttls(context=context)
 		server.login(username, password)
-		server.sendmail(sender, receiver,  msg.as_string())
+		server.sendmail(username, email,  msg.as_string())
