@@ -324,7 +324,12 @@ def execute_task():
 			# Watch out for large amounts of tests
 			command = shlex.split(command)
 
-			zad = Task.get_task(cursor, slug)
+			zad, err = Task.get_task(cursor, slug)
+			if zad is None:
+				return {
+						"result": f"1/0",
+						"tests": {},
+					}, 403
 			cursor.execute("""SELECT testprimjer.* FROM testprimjer NATURAL JOIN zadatak WHERE zadatak.slug = %s ORDER BY ulaz ASC;""", (zad.slug,))
 			tests = cursor.fetchall()
 
