@@ -345,7 +345,7 @@ def execute_task():
 				try:
 					start_time = time.time()
 					output = proc.communicate(input=test.ulaz.encode(encoding='utf-8'),
-												timeout=zad.max_vrijeme_izvrsavanja)[0] # Data is also buffered in memory !
+												timeout=float(zad.max_vrijeme_izvrsavanja))[0] # Data is also buffered in memory !
 					total_time += time.time() - start_time
 
 					output = output.decode(encoding='utf-8').strip() # Or whatever is required
