@@ -1,5 +1,5 @@
 import hashlib
-
+from slugify import slugify
 class User:
 	def __init__(self, korisnicko_ime, lozinka, slika_profila, ime, prezime, email, titula = 'amater', nivou_prava = 1):
 		self.korisnicko_ime = korisnicko_ime
@@ -148,9 +148,9 @@ class Competition:
 		self.trofej_id = trofej_id
 		self.slug = slug
 
-	def get_competition(cursor, comp_id):
+	def get_competition(cursor, comp_slug):
 		cursor.execute("""SELECT * FROM natjecanje 
-						WHERE natjecanjeid = %s""", (comp_id,))
+						WHERE slug = %s""", (comp_slug,))
 		resp = cursor.fetchone()
 		if resp is not None:
 			comp = Competition(*resp)
@@ -190,10 +190,10 @@ class Competition:
 	
 	# list of tasks in a competition
 	@staticmethod
-	def get_tasks_in_comp(cursor, comp_id):
-		cursor.execute("""SELECT slug 
+	def get_tasks_in_comp(cursor, comp_slug):
+		cursor.execute("""SELECT zadatak.slug 
 					FROM zadatak JOIN natjecanje USING(natjecanjeid) 
-					WHERE zadatak.natjecanjeid = %s""", (comp_id,))
+					WHERE natjecanje.slug = %s""", (comp_slug,))
 		resp = cursor.fetchall()
 		task_slug_list = []
 		for task in resp:
@@ -224,25 +224,29 @@ class Competition:
 		user_id = cursor.fetchone()[0]
 		tasks = data["tasks"]
 		tasks = (tasks[1:-1]).split(',')
-		##TODO: upload trophy pic, save the file, save path to db, take that ID and put here 
+		slug = slugify(data["imenatjecanja"])
+		##TODO: upload trophy pic, save the file, save path to db, take that ID and put here
+		##TODO: insert slug
 		try:
-			cursor.execute("""INSERT INTO natjecanje(imenatjecanja, tekstnatjecanja, vrijemekraj, 
+			cursor.execute("""INSERT INTO natjecanje(imenatjecanja, slug, tekstnatjecanja, vrijemekraj, 
 													vrijemepoc, slikatrofeja, brojzadataka, 
 													autorid, idklasenatjecanja, trofejid)
-							VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING natjecanjeid""",
-							(data["imenatjecanja"], data["tekstnatjecanja"], data["vrijemekraj"], 
+							VALUES(%s, %s ,%s, %s, %s, %s, %s, %s, %s, %s) RETURNING slug, natjecanjeid""",
+							(data["imenatjecanja"], slug, data["tekstnatjecanja"], data["vrijemekraj"], 
 							data["vrijemepoc"], data["slikatrofeja"], len(tasks),
 							user_id, 1, data["trofejid"],))
-			comp_id = cursor.fetchone()[0]
-			for task_slug in data["tasks"]:
+			resp = cursor.fetchone()
+			comp_slug, comp_id = resp[0], resp[1] 
+			for task_slug in tasks:
 				cursor.execute("""UPDATE zadatak
 							SET natjecanjeid = %s, 
 								privatnost = false
 							WHERE zadatak.slug= %s;"""
 							,(comp_id, task_slug[1:-1]))
 				## lets ignore possiblities of errors for now
-			return comp_id, None
-		except:
+			return comp_slug, None
+		except Exception as e:
+			print(e)
 			return None, "Competition already exists"
 
 class Trophy:
@@ -429,12 +433,11 @@ class VirtualCompetition:
 	@staticmethod
 	def get_comp_data_for_virtual_real_comp(cursor, comp_id):
 	## potentially change to slug in the future
-		cursor.execute("""SELECT slug, imenatjecanja
+		cursor.execute("""SELECT zadatak.slug, imenatjecanja
 						FROM natjecanje JOIN zadatak
 						USING(natjecanjeid)
 						WHERE natjecanjeid = %s;""", (comp_id,))
 		res = cursor.fetchall()
-
 		if len(res):
 			return tuple([i[0] for i in res]), res[0][1]
 		return tuple(), None
@@ -454,13 +457,15 @@ class VirtualCompetition:
 		return task_slug_list
 	
 	@staticmethod
-	def insert_real_into_virt(cursor, username, comp_id):
+	def insert_real_into_virt(cursor, username, slug):
 		## TODO: dont use userid
 		cursor.execute("""SELECT korisnikid FROM korisnik WHERE korisnickoime = %s;""", (username,))
 		user_id = cursor.fetchone()[0]
 		cursor.execute("""INSERT INTO virtnatjecanje
-					(vrijemekreacije,korisnikid,natjecanjeid)
-					VALUES(NOW(), %s, %s) RETURNING virtnatjecanjeid;"""
-					,(user_id, comp_id,))
+					(vrijemekreacije,korisnikid, natjecanjeid)
+					VALUES(NOW(), 
+							%s, 
+							(SELECT natjecanjeid FROM natjecanje WHERE slug = %s)) RETURNING virtnatjecanjeid;"""
+					,(user_id, slug,))
 		return cursor.fetchone()[0]
 		

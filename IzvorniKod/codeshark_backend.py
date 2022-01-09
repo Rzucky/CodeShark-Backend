@@ -78,34 +78,34 @@ def create_competition():
 
 		elif request.method == 'POST':
 			data = dict(request.form)
-			comp_id, error = Competition.create_competition(cursor, data)
-			if comp_id is not None:
-				return {"natjecanje_id": comp_id}, 200
+			comp_slug, error = Competition.create_competition(cursor, data)
+			if comp_slug is not None:
+				return {"comp_slug": comp_slug}, 200
 			return {"error": error}, 400
 
-@app.route('/competition/<competition_id>', methods=['GET', 'PUT'])
-def competition(competition_id):
+@app.route('/competition/<competition_slug>', methods=['GET', 'PUT'])
+def competition(competition_slug):
 	conn, cursor = connect_to_db()
 	with conn, cursor:
 		if request.method == 'GET':
-			comp, error = Competition.get_competition(cursor, competition_id)
+			comp, error = Competition.get_competition(cursor, competition_slug)
 			if comp is not None:
 				# this needs to be fixed to competition slug and not id 
 				author_name, author_lastname = Task.get_author_name_id(cursor, comp.autor_id)
-				tasks = Competition.get_tasks_in_comp(cursor, comp.natjecanje_id)
+				tasks = Competition.get_tasks_in_comp(cursor, comp.slug)
 				comp_class_name, error = Competition.get_class_name_from_class_id(cursor, comp.id_klase_natjecanja)
 				return{
-					"natjecanje_id":		f"{comp.natjecanje_id}",
-					"ime_natjecanja":		f"{comp.ime_natjecanja}",
-					"tekst_natjecanja":		f"{comp.tekst_natjecanja}",
-					"ime_prezime_autora":	f"{author_name} {author_lastname}",
-					"vrijeme_poc":			f"{comp.vrijeme_poc}",
-					"vrijeme_kraj":			f"{comp.vrijeme_kraj}",
-					"slika_trofeja":		f"{comp.slika_trofeja}",
-					"trofej_id":			f"{comp.trofej_id}",
-					"broj_zadataka":		f"{comp.broj_zadatak}",
-					"ime_klase_natjecanja":	f"{comp_class_name}",
-					"zadaci":				tasks
+					"comp_slug":		f"{comp.slug}",
+					"comp_name":		f"{comp.ime_natjecanja}",
+					"comp_text":		f"{comp.tekst_natjecanja}",
+					"author_name":		f"{author_name} {author_lastname}",
+					"start_time":		f"{comp.vrijeme_poc}",
+					"end_time":			f"{comp.vrijeme_kraj}",
+					"trophy_img":		f"{comp.slika_trofeja}",
+					"trophy_id":		f"{comp.trofej_id}",
+					"task_length":		f"{comp.broj_zadatak}",
+					"comp_class_name":	f"{comp_class_name}",
+					"tasks":			tasks
 				}, 200
 			else:
 				return {"error": error}, 403
@@ -138,17 +138,17 @@ def virtual_competitions():
 
 		return {"virtual_competitions": virt_list}, 200
 
-@app.route('/virtual_competition/<id_real_comp>', methods=['POST'])
+@app.route('/virtual_competition/<slug_real_comp>', methods=['POST'])
 @app.route('/virtual_competition/<virt_id>', methods=['GET'])
 @app.route('/virtual_competition', methods=['POST'])
-def virtual_competition(virt_id = None, id_real_comp = None):
+def virtual_competition(virt_id = None, slug_real_comp = None):
 	conn, cursor = connect_to_db()
 	with conn, cursor:
 		if request.method == 'POST':
 			username = request.headers.get('session')
 			# creates a virtual competition from a real one
-			if id_real_comp is not None:
-				virtual_id = VirtualCompetition.insert_real_into_virt(cursor, username, id_real_comp)	
+			if slug_real_comp is not None:
+				virtual_id = VirtualCompetition.insert_real_into_virt(cursor, username, slug_real_comp)	
 				return {"status": "Successfully created virtual competition from a real one",
 						"virtual_id": f"{virtual_id}"
 						}, 200
@@ -174,7 +174,6 @@ def virtual_competition(virt_id = None, id_real_comp = None):
 					name = f"Virtual {name}"
 
 				return {
-					"natjecanje_id":	virt.natjecanje_id,
 					"tasks":			virt.zadaci,
 					"created_at":		virt.vrijeme_kreacije,
 					"name": 			name
@@ -427,7 +426,7 @@ def profile(username):
 			for comp in created_competitions_ins: #TODO: potential error handling? is it possible?
 				comp_class_name, error = Competition.get_class_name_from_class_id(cursor, comp.id_klase_natjecanja)
 				created_competitions.append({
-					"comp_id":			f"{comp.natjecanje_id}",
+					"comp_slug":		f"{comp.slug}",
 					"comp_name":		f"{comp.ime_natjecanja}",
 					"start_time":		f"{comp.vrijeme_poc}",
 					"end_time":			f"{comp.vrijeme_kraj}",
