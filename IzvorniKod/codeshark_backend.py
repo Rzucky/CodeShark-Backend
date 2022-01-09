@@ -360,7 +360,7 @@ def execute_task():
 					results[i] = {"passed": False, "description": "timeout"}
 
 			# Store solution data
-			cursor.execute("SELECT korisnikid WHERE korisnickoime = %s;", (user,))
+			cursor.execute("SELECT korisnikid FROM korisnik WHERE korisnickoime = %s;", (user,))
 			upload = UploadedSolution(code,
 									float(passed) / total_tests,
 									submit_time,
