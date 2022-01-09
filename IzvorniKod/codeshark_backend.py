@@ -458,45 +458,74 @@ def edit_profile():
 		if "fromuser" not in data:
 			return {"error": "user requesting edit not specified"}, 400
 
-		# TODO: Beta
-		# try:
-		# 	# Accept image from form
-		# 	if "slikaprofila" in request.files:
-		# 		file = request.files["slikaprofila"]
-		# 		if file.filename != "":
-		# 			fpath = os.path.join(app.config["UPLOAD_FOLDER"],
-		# 								secure_filename(f"pfp_{User.hash_pfp_filename(data['slikaprofila'])}"))
-		# 			file_ext = file.filename.split('.')[-1]
-		# 			file.save(f"{fpath}.{file_ext}")
-		# except Exception as e:
-		# 	pass
-
-		cursor.execute("""UPDATE korisnik
-							SET ime = %s,
-								prezime = %s
-							WHERE korisnickoime = %s;""", (data["ime"],
-															data["prezime"],
-															data["fromuser"]))
+		fromuser = data.pop("fromuser")
 
 		cursor.execute("""SELECT nivouprava
 							FROM korisnik
-							WHERE korisnickoime = %s;""", (data["fromuser"],))
+							WHERE korisnickoime = %s;""", (fromuser,))
+		rank = cursor.fetchone()[0]
 
-		if cursor.fetchone()[0] == 3: # Only admin
-			cursor.execute("""UPDATE korisnik
-								SET email = %s,
-									nivouprava = %s,
-									korisnickoime = %s,
-									lozinka = %s
-								WHERE korisnickoime = %s;""", (data["email"],
-																data["rank"],
-																data["korisnickoime"],
-																data["lozinka"],
-																data["fromuser"]))
+		querystr = "UPDATE korisnik SET "
+		queryparams = []
+		
+		if "ime" in data:
+			querystr += "ime = %s,"
+			queryparams += [data.pop("ime")]
 
-		conn.commit()
+		if "prezime" in data:
+			querystr += "prezime = %s,"
+			queryparams += [data.pop("prezime")]
 
-		return {"status": "profile changes accepted"}, 200
+		if rank == Rank.ADMIN: # Only admin
+			if "email" in data:
+				querystr += "email = %s,"
+				queryparams += [data.pop("email")]
+
+			if "rank" in data:
+				querystr += "rank = %s,"
+				queryparams += [data.pop("rank")]
+
+			if "korisnickoime" in data:
+				querystr += "korisnickoime = %s,"
+				queryparams += [data.pop("korisnickoime")]
+
+			if "lozinka" in data:
+				querystr += "lozinka = %s,"
+				queryparams += [data.pop("lozinka")]
+
+		if len(data) > 0:
+			return {"error": "nonexistent property or insufficient rank"}, 400
+
+		# TODO: Beta
+		imgreceived = False
+		try:
+			# Accept image from form
+			if "slikaprofila" in request.files:
+				file = request.files["slikaprofila"]
+				if file.filename != "":
+					imgreceived = True
+					fpath = os.path.join(app.config["UPLOAD_FOLDER"],
+										secure_filename(f"pfp_{User.hash_pfp_filename(data['slikaprofila'])}"))
+					file_ext = file.filename.split('.')[-1]
+					file.save(f"{fpath}.{file_ext}")
+		except Exception as e:
+			pass
+
+		if len(queryparams) == 0 and not imgreceived:
+			return {"error": "no data sent"}, 400
+
+
+		querystr = querystr[:-1] if querystr.endswith(",") else querystr
+		querystr += f" WHERE korisnickoime = %s;"
+		queryparams += [fromuser]
+
+		try:
+			cursor.execute(querystr, queryparams)
+			conn.commit()
+			return {"status": "profile changes accepted"}, 200
+		except Exception as e:
+			return {"error": str(e)}, 500
+
 
 @app.route('/login', methods=['POST'])
 def login():
