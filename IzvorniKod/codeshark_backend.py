@@ -330,7 +330,7 @@ def execute_task():
 						"result": f"1/0",
 						"tests": {},
 					}, 403
-			cursor.execute("""SELECT testprimjer.* FROM testprimjer NATURAL JOIN zadatak WHERE zadatak.slug = %s ORDER BY ulaz ASC;""", (zad.slug,))
+			cursor.execute("""SELECT testprimjer.* FROM testprimjer NATURAL JOIN zadatak WHERE zadatak.slug = %s ORDER BY ulaz ASC;""", (zad.slag,))
 			tests = cursor.fetchall()
 
 			total_tests = len(tests)
