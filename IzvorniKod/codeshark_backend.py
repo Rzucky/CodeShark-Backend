@@ -11,7 +11,7 @@ import subprocess as subp
 import time
 import uuid
 
-from classes import User, Competition, Trophy, VirtualCompetition, Task, TestCase, UploadedSolution
+from classes import Rank, User, Competition, Trophy, VirtualCompetition, Task, TestCase, UploadedSolution
 import codeshark_config as cfg
 import send_mail
 
@@ -405,10 +405,10 @@ def profile(username):
 			})
 
 		correctly_solved = user.calc_successfully_solved(cursor)
-		
+
 		submitted_solutions = []
 		created_competitions = []
-		if user.nivou_prava == 1:		# Natjecatelj
+		if user.rank == Rank.COMPETITOR:		# Natjecatelj
 			submitted_solutions_ins	= user.get_submitted_solutions(cursor)
 			for task in submitted_solutions_ins:
 				task_name = Task.get_task_name(cursor, task.zadatak_id)
@@ -421,7 +421,7 @@ def profile(username):
 					"task_name": f"{task_name}"
 				})
 
-		elif user.nivou_prava in [2, 3]:	# Voditelj || Admin
+		elif user.rank in [Rank.LEADER, Rank.ADMIN]:	# Voditelj || Admin
 			created_competitions_ins = user.get_created_competitons(cursor)
 			for comp in created_competitions_ins: #TODO: potential error handling? is it possible?
 				comp_class_name, error = Competition.get_class_name_from_class_id(cursor, comp.id_klase_natjecanja)
@@ -438,7 +438,7 @@ def profile(username):
 		return {"name": user.ime,
 				"last_name": user.prezime,
 				"pfp_url": user.slika_profila,
-				"rank": user.nivou_prava,
+				"rank": user.rank,
 				"email": user.email,
 				"trophies": trophies_list,
 				"title": user.titula,
@@ -520,7 +520,7 @@ def login():
 			return {"error": "User is not activated"}, 401
 
 		return {"status": "Successfully logged in",
-				"rank": user.nivou_prava
+				"rank": user.rank
 				}, 200
 
 @app.route('/validate/<token>', methods=['GET'])
@@ -558,7 +558,7 @@ def register():
 						data["prezime"],
 						data["email"],
 						data["titula"],
-						data["nivouprava"])
+						data["rank"])
 
 		user_existance, error = User.check_if_user_exists(cursor, user.korisnicko_ime, user.email)
 		if user_existance:
@@ -602,7 +602,7 @@ def register():
 		cursor.execute("""INSERT INTO korisnik
 									(korisnickoime, slikaprofila, lozinka, ime, prezime, email, titula, nivouprava, token, tokengeneriran)
 						VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);""",
-						(user.korisnicko_ime, user.slika_profila, user.lozinka, user.ime, user.prezime, user.email, user.titula, user.nivou_prava, token, current_time))
+						(user.korisnicko_ime, user.slika_profila, user.lozinka, user.ime, user.prezime, user.email, user.titula, user.rank, token, current_time))
 		conn.commit()
 
 		# Sending verification mail

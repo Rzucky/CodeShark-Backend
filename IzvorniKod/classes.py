@@ -1,7 +1,14 @@
 import hashlib
 from slugify import slugify
+from enum import IntEnum
+
+class Rank(IntEnum):
+	COMPETITOR = 1
+	LEADER = 2
+	ADMIN = 3
+
 class User:
-	def __init__(self, korisnicko_ime, lozinka, slika_profila, ime, prezime, email, titula = 'amater', nivou_prava = 1):
+	def __init__(self, korisnicko_ime, lozinka, slika_profila, ime, prezime, email, titula='amater', rank=Rank.COMPETITOR):
 		self.korisnicko_ime = korisnicko_ime
 		self.lozinka = lozinka
 		self.slika_profila = slika_profila
@@ -9,7 +16,7 @@ class User:
 		self.prezime = prezime
 		self.email = email
 		self.titula = titula
-		self.nivou_prava = nivou_prava
+		self.rank = rank
 
 	def __get_id(self, cursor):
 		cursor.execute("""SELECT korisnikid FROM korisnik WHERE korisnickoime = %s;""", (self.korisnicko_ime,))
