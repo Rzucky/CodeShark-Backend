@@ -135,7 +135,7 @@ class User:
 		return None
 
 class Competition:
-	def __init__(self, natjecanje_id, ime_natjecanja, tekst_natjecanja, vrijeme_kraj, vrijeme_poc, slika_trofeja, broj_zadatak, autor_id, id_klase_natjecanja, trofej_id):
+	def __init__(self, natjecanje_id, ime_natjecanja, tekst_natjecanja, vrijeme_kraj, vrijeme_poc, slika_trofeja, broj_zadatak, autor_id, id_klase_natjecanja, trofej_id, slug):
 		self.natjecanje_id = natjecanje_id
 		self.ime_natjecanja = ime_natjecanja
 		self.tekst_natjecanja = tekst_natjecanja
@@ -146,6 +146,7 @@ class Competition:
 		self.autor_id = autor_id
 		self.id_klase_natjecanja = id_klase_natjecanja
 		self.trofej_id = trofej_id
+		self.slug = slug
 
 	def get_competition(cursor, comp_id):
 		cursor.execute("""SELECT * FROM natjecanje 
