@@ -468,31 +468,31 @@ def edit_profile():
 		querystr = "UPDATE korisnik SET "
 		queryparams = []
 		
-		if "name" in data:
+		if "name" in data and data["name"] != "":
 			querystr += "ime = %s,"
 			queryparams += [data.pop("name")]
 
-		if "last_name" in data:
+		if "last_name" in data and data["last_name"] != "":
 			querystr += "prezime = %s,"
 			queryparams += [data.pop("last_name")]
 
 		newuser = fromuser # Used if new profile pic was sent
 
 		if rank == Rank.ADMIN: # Only admin
-			if "email" in data:
+			if "email" in data and data["email"] != "":
 				querystr += "email = %s,"
 				queryparams += [data.pop("email")]
 
-			if "rank" in data:
+			if "rank" in data and data["rank"] != "":
 				querystr += "nivouprava = %s,"
 				queryparams += [data.pop("rank")]
 
-			if "username" in data:
+			if "username" in data and data["username"] != "":
 				querystr += "korisnickoime = %s,"
 				newuser = data.pop("username")
 				queryparams += [newuser]
 
-			if "password" in data:
+			if "password" in data and data["password"] != "":
 				querystr += "lozinka = %s,"
 				queryparams += [data.pop("password")]
 
