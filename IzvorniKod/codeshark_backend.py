@@ -43,9 +43,9 @@ def home():
 		task_list_instances = Task.get_recent_tasks(cursor)
 		for task in task_list_instances:
 			task_list.append({
-				"name": f"{task.ime_zadatka}",
-				"tezina": 	f"{task.bodovi}",
-				"slug": f"{task.slag}"
+				"name": f"{task.task_name}",
+				"difficulty": 	f"{task.difficulty}",
+				"slug": f"{task.slug}"
 			})
 
 		competition_list = Competition.format_competitions(cursor, 5)
@@ -71,8 +71,8 @@ def create_competition():
 			task_list_instances = Task.get_private_tasks(cursor, username)
 			for task in task_list_instances:
 				task_list.append({
-					"name": f"{task.ime_zadatka}",
-					"slug": f"{task.slag}"
+					"name": f"{task.task_name}",
+					"slug": f"{task.slug}"
 				})
 			return {"tasks": task_list}, 200
 
@@ -91,19 +91,19 @@ def competition(competition_slug):
 			comp, error = Competition.get_competition(cursor, competition_slug)
 			if comp is not None:
 				# this needs to be fixed to competition slug and not id 
-				author_name, author_lastname = Task.get_author_name_id(cursor, comp.autor_id)
+				author_name, author_lastname = Task.get_author_name_id(cursor, comp.author_id)
 				tasks = Competition.get_tasks_in_comp(cursor, comp.slug)
-				comp_class_name, error = Competition.get_class_name_from_class_id(cursor, comp.id_klase_natjecanja)
+				comp_class_name, error = Competition.get_class_name_from_class_id(cursor, comp.comp_class_id)
 				return{
 					"comp_slug":		f"{comp.slug}",
-					"comp_name":		f"{comp.ime_natjecanja}",
-					"comp_text":		f"{comp.tekst_natjecanja}",
+					"comp_name":		f"{comp.comp_name}",
+					"comp_text":		f"{comp.comp_text}",
 					"author_name":		f"{author_name} {author_lastname}",
-					"start_time":		f"{comp.vrijeme_poc}",
-					"end_time":			f"{comp.vrijeme_kraj}",
-					"trophy_img":		f"{comp.slika_trofeja}",
-					"trophy_id":		f"{comp.trofej_id}",
-					"task_length":		f"{comp.broj_zadatak}",
+					"start_time":		f"{comp.start_time}",
+					"end_time":			f"{comp.end_time}",
+					"trophy_img":		f"{comp.trophy_img}",
+					"trophy_id":		f"{comp.trophy_id}",
+					"task_count":		f"{comp.task_count}",
 					"comp_class_name":	f"{comp_class_name}",
 					"tasks":			tasks
 				}, 200
@@ -141,7 +141,7 @@ def virtual_competitions():
 @app.route('/virtual_competition/<slug_real_comp>', methods=['POST'])
 @app.route('/virtual_competition/<virt_id>', methods=['GET'])
 @app.route('/virtual_competition', methods=['POST'])
-def virtual_competition(virt_id = None, slug_real_comp = None):
+def virtual_competition(virt_id=None, slug_real_comp=None):
 	conn, cursor = connect_to_db()
 	with conn, cursor:
 		if request.method == 'POST':
@@ -155,11 +155,11 @@ def virtual_competition(virt_id = None, slug_real_comp = None):
 			else:
 				# creates a virtual competition with random tasks
 				data = request.json
-				virt = VirtualCompetition.create_virt_competition(conn, cursor, data["broj"], username)
-				task_list = VirtualCompetition.get_slugs_from_ids_from_virt(cursor, virt.virt_natjecanje_id)
+				virt = VirtualCompetition.create_virt_competition(conn, cursor, data["task_count"], username)
+				task_list = VirtualCompetition.get_slugs_from_ids_from_virt(cursor, virt.virt_comp_id)
 				
 				return {"tasks": 		task_list,
-						"virt_comp_id":	f"{virt.virt_natjecanje_id}",
+						"virt_comp_id":	f"{virt.virt_comp_id}",
 						"name": 		"Virtual Competition"
 						}, 201
 
@@ -168,14 +168,14 @@ def virtual_competition(virt_id = None, slug_real_comp = None):
 			virt, error = VirtualCompetition.get_virtual_competition(cursor, virt_id)
 			if virt is not None:
 				name = "Virtual Competition"
-				if virt.natjecanje_id is not None:
+				if virt.comp_id is not None:
 					# getting tasks
-					virt.zadaci, name = VirtualCompetition.get_comp_data_for_virtual_real_comp(cursor, virt.natjecanje_id)
+					virt.tasks, name = VirtualCompetition.get_comp_data_for_virtual_real_comp(cursor, virt.comp_id)
 					name = f"Virtual {name}"
 
 				return {
-					"tasks":			virt.zadaci,
-					"created_at":		virt.vrijeme_kreacije,
+					"tasks":			virt.tasks,
+					"created_at":		virt.created_at,
 					"name": 			name
 				}, 200
 			return {"error": error}, 400
@@ -187,7 +187,7 @@ def avatar(username):
 		cursor.execute("""SELECT slikaprofila FROM korisnik WHERE korisnickoime = %s;""", (username,))
 		profile_pic_url = cursor.fetchone()
 		if profile_pic_url is not None:
-			return {"url": f"{profile_pic_url[0]}"}, 200
+			return {"pfp_url": f"{profile_pic_url[0]}"}, 200
 
 		return {"error" : "No profile picture available"}, 404
 
@@ -203,19 +203,19 @@ def task(slug):
 			author_name, author_lastname = Task.get_author_name(cursor, slug)
 			
 			return{
-				"ime_zadatka":				f"{zad.ime_zadatka}",
-				"tezina":					f"{zad.bodovi}",
-				"max_vrijeme_izvrsavanja":	f"{zad.max_vrijeme_izvrsavanja}",
-				"tekst_zadatka":			f"{zad.tekst_zadatka}",
-				"slug":						f"{zad.slag}",
-				"ime_prezime_autora":		f"{author_name} {author_lastname}"
+				"task_name":			f"{zad.task_name}",
+				"difficulty":			f"{zad.difficulty}",
+				"max_exe_time":			f"{zad.max_exe_time}",
+				"task_text":			f"{zad.task_text}",
+				"slug":					f"{zad.slug}",
+				"name_last_name":		f"{author_name} {author_lastname}"
 				}, 200
 					
 
 		elif request.method == 'POST':
 			data = request.json
 
-			user = User.get_user(cursor, data["korisnickoime"])
+			user = User.get_user(cursor, data["username"])
 			# can this happen? wrong request?
 			if user is None:
 				return {"error": "user doesn't exist or wrong username"}, 400
@@ -229,9 +229,9 @@ def tasks():
 		task_list_instances = Task.get_all_public_tasks(cursor)
 		for task in task_list_instances:
 			task_list.append({
-				"name": 	f"{task.ime_zadatka}",
-				"tezina": 	f"{task.bodovi}",
-				"slug":		f"{task.slag}"
+				"task_name": 	f"{task.task_name}",
+				"difficulty": 	f"{task.difficulty}",
+				"slug":		f"{task.slug}"
 			})
 		return {"tasks": task_list}, 200
 
@@ -243,7 +243,7 @@ def execute_task():
 			data = request.json
 
 			slug = data["slug"]
-			user = data["korisnickoime"]
+			user = data["username"]
 			lang = data["lang"]
 			code = data["code"] # Length ?
 
@@ -323,13 +323,13 @@ def execute_task():
 			# Watch out for large amounts of tests
 			command = shlex.split(command)
 
-			zad, err = Task.get_task(cursor, slug)
-			if zad is None:
+			task, err = Task.get_task(cursor, slug)
+			if task is None:
 				return {
 						"result": f"1/0",
 						"tests": {},
 					}, 403
-			cursor.execute("""SELECT testprimjer.* FROM testprimjer NATURAL JOIN zadatak WHERE zadatak.slug = %s ORDER BY ulaz ASC;""", (zad.slag,))
+			cursor.execute("""SELECT testprimjer.* FROM testprimjer NATURAL JOIN zadatak WHERE zadatak.slug = %s ORDER BY ulaz ASC;""", (task.slug,))
 			tests = cursor.fetchall()
 
 			total_tests = len(tests)
@@ -343,12 +343,12 @@ def execute_task():
 
 				try:
 					start_time = time.time()
-					output = proc.communicate(input=test.ulaz.encode(encoding='utf-8'),
-												timeout=float(zad.max_vrijeme_izvrsavanja))[0] # Data is also buffered in memory !
+					output = proc.communicate(input=test.input.encode(encoding='utf-8'),
+												timeout=float(task.max_exe_time))[0] # Data is also buffered in memory !
 					total_time += time.time() - start_time
 
 					output = output.decode(encoding='utf-8').strip() # Or whatever is required
-					if test.izlaz == output:
+					if test.output == output:
 						results[i] = {"passed": True, "description": "correct answer"}
 						passed += 1
 					else:
@@ -365,7 +365,7 @@ def execute_task():
 									submit_time,
 									total_time / total_tests,
 									cursor.fetchone()[0],
-									zad.zadatak_id)
+									task.task_id)
 
 			# Delete temporary code files
 			try:
@@ -375,12 +375,12 @@ def execute_task():
 				pass
 
 			cursor.execute("""INSERT INTO uploadrjesenja
-								VALUES (%s, %s, %s, %s, %s, %s);""", (upload.predano_rjesenje,
-																	upload.prolaznost,
-																	upload.vrijeme_predaje,
-																	upload.prosj_vrijeme_izvrsenja,
-																	upload.korisnik_id,
-																	upload.zadatak_id))
+								VALUES (%s, %s, %s, %s, %s, %s);""", (upload.submitted_solution,
+																	upload.passed,
+																	upload.submitted_time,
+																	upload.avg_exe_time,
+																	upload.user_id,
+																	upload.task_id))
 			conn.commit()
 
 			return {
@@ -400,8 +400,8 @@ def profile(username):
 		trophies_list_instances = Trophy.user_trophies(cursor, user)
 		for trophy in trophies_list_instances:
 			trophies_list.append({
-				"trophy_name":	f"{trophy.ime_trofeja}",
-				"trophy_img": 	f"{trophy.slika_trofeja}"
+				"trophy_name":	f"{trophy.trophy_name}",
+				"trophy_img": 	f"{trophy.trophy_img}"
 			})
 
 		correctly_solved = user.calc_successfully_solved(cursor)
@@ -411,12 +411,12 @@ def profile(username):
 		if user.rank == Rank.COMPETITOR:		# Natjecatelj
 			submitted_solutions_ins	= user.get_submitted_solutions(cursor)
 			for task in submitted_solutions_ins:
-				task_name = Task.get_task_name(cursor, task.zadatak_id)
+				task_name = Task.get_task_name(cursor, task.task_id)
 				submitted_solutions.append({
-					"submitted_solution": f"{task.predano_rjesenje}",
-					"result": f"{task.prolaznost}",
-					"submitted_time": f"{task.vrijeme_predaje}",
-					"avg_exe_time": f"{task.prosj_vrijeme_izvrsenja}",
+					"submitted_solution": f"{task.submitted_solution}",
+					"passed": f"{task.passed}",
+					"submitted_time": f"{task.submitted_time}",
+					"avg_exe_time": f"{task.avg_exe_time}",
 					## all in one query?
 					"task_name": f"{task_name}"
 				})
@@ -424,24 +424,24 @@ def profile(username):
 		elif user.rank in [Rank.LEADER, Rank.ADMIN]:	# Voditelj || Admin
 			created_competitions_ins = user.get_created_competitons(cursor)
 			for comp in created_competitions_ins: #TODO: potential error handling? is it possible?
-				comp_class_name, error = Competition.get_class_name_from_class_id(cursor, comp.id_klase_natjecanja)
+				comp_class_name, error = Competition.get_class_name_from_class_id(cursor, comp.comp_class_id)
 				created_competitions.append({
 					"comp_slug":		f"{comp.slug}",
-					"comp_name":		f"{comp.ime_natjecanja}",
-					"start_time":		f"{comp.vrijeme_poc}",
-					"end_time":			f"{comp.vrijeme_kraj}",
-					"trophy_img":		f"{comp.slika_trofeja}",
-					"task_length":		f"{comp.broj_zadatak}",
+					"comp_name":		f"{comp.comp_name}",
+					"start_time":		f"{comp.start_time}",
+					"end_time":			f"{comp.end_time}",
+					"trophy_img":		f"{comp.trophy_img}",
+					"task_count":		f"{comp.task_count}",
 					"comp_class_name":	f"{comp_class_name}"
 				})
 
-		return {"name": user.ime,
-				"last_name": user.prezime,
-				"pfp_url": user.slika_profila,
+		return {"name": user.name,
+				"last_name": user.last_name,
+				"pfp_url": user.pfp_url,
 				"rank": user.rank,
 				"email": user.email,
 				"trophies": trophies_list,
-				"title": user.titula,
+				"title": user.title,
 				"attempted": user.attempted,
 				"solved": user.solved,
 				"correctly_solved": correctly_solved,
@@ -468,13 +468,15 @@ def edit_profile():
 		querystr = "UPDATE korisnik SET "
 		queryparams = []
 		
-		if "ime" in data:
+		if "name" in data:
 			querystr += "ime = %s,"
-			queryparams += [data.pop("ime")]
+			queryparams += [data.pop("name")]
 
-		if "prezime" in data:
+		if "last_name" in data:
 			querystr += "prezime = %s,"
-			queryparams += [data.pop("prezime")]
+			queryparams += [data.pop("last_name")]
+
+		newuser = fromuser # Used if new profile pic was sent
 
 		if rank == Rank.ADMIN: # Only admin
 			if "email" in data:
@@ -482,38 +484,42 @@ def edit_profile():
 				queryparams += [data.pop("email")]
 
 			if "rank" in data:
-				querystr += "rank = %s,"
+				querystr += "nivouprava = %s,"
 				queryparams += [data.pop("rank")]
 
-			if "korisnickoime" in data:
+			if "username" in data:
 				querystr += "korisnickoime = %s,"
-				queryparams += [data.pop("korisnickoime")]
+				newuser = data.pop("username")
+				queryparams += [newuser]
 
-			if "lozinka" in data:
+			if "password" in data:
 				querystr += "lozinka = %s,"
-				queryparams += [data.pop("lozinka")]
+				queryparams += [data.pop("password")]
 
 		if len(data) > 0:
 			return {"error": "nonexistent property or insufficient rank"}, 400
 
-		# TODO: Beta
 		imgreceived = False
 		try:
 			# Accept image from form
-			if "slikaprofila" in request.files:
-				file = request.files["slikaprofila"]
+			if "pfp_url" in request.files:
+				file = request.files["pfp_url"]
 				if file.filename != "":
 					imgreceived = True
 					fpath = os.path.join(app.config["UPLOAD_FOLDER"],
-										secure_filename(f"pfp_{User.hash_pfp_filename(data['slikaprofila'])}"))
+										secure_filename(f"pfp_{User.hash_pfp_filename(newuser)}"))
 					file_ext = file.filename.split('.')[-1]
 					file.save(f"{fpath}.{file_ext}")
+
 		except Exception as e:
-			pass
+			imgreceived = False
 
 		if len(queryparams) == 0 and not imgreceived:
 			return {"error": "no data sent"}, 400
 
+		if imgreceived:
+			querystr += "slikaprofila = %s,"
+			queryparams += [f"pfp_{User.hash_pfp_filename(newuser)}"]
 
 		querystr = querystr[:-1] if querystr.endswith(",") else querystr
 		querystr += f" WHERE korisnickoime = %s;"
@@ -533,11 +539,11 @@ def login():
 	with conn, cursor:
 		data = request.json
 
-		user = User.get_user(cursor, data["korisnickoime"])
+		user = User.get_user(cursor, data["username"])
 		if user is None:
 			return {"error": "User doesn't exist or wrong username"}, 400
 
-		cursor.execute("""SELECT * from korisnik WHERE korisnickoime = %s AND lozinka = %s""", (user.korisnicko_ime,  User.hash_password(data["lozinka"]),))
+		cursor.execute("""SELECT * from korisnik WHERE korisnickoime = %s AND lozinka = %s""", (user.username,  User.hash_password(data["password"]),))
 		db_response = cursor.fetchone()
 
 		if db_response is None:
@@ -577,28 +583,28 @@ def register():
 		data = dict(request.form)
 
 		# default value
-		if data["titula"] == "":
-			data["titula"] = 'tutlek'
+		if data["title"] == "":
+			data["title"] = 'amater'
 
-		user = User(data["korisnickoime"],
-						User.hash_password(data["lozinka"]),
-						f"pfp_{User.hash_pfp_filename(data['korisnickoime'])}",
-						data["ime"],
-						data["prezime"],
+		user = User(data["username"],
+						User.hash_password(data["password"]),
+						f"pfp_{User.hash_pfp_filename(data['username'])}",
+						data["name"],
+						data["last_name"],
 						data["email"],
-						data["titula"],
+						data["title"],
 						data["rank"])
 
-		user_existance, error = User.check_if_user_exists(cursor, user.korisnicko_ime, user.email)
+		user_existance, error = User.check_if_user_exists(cursor, user.username, user.email)
 		if user_existance:
 			return {"error": error}, 400
 
 		# Profile pic
-		fpath = os.path.join(app.config["UPLOAD_FOLDER"], secure_filename(user.slika_profila))
+		fpath = os.path.join(app.config["UPLOAD_FOLDER"], secure_filename(user.pfp_url))
 		try:
 			# Accept image from form
-			if "slikaprofila" in request.files:
-				file = request.files["slikaprofila"]
+			if "pfp_url" in request.files:
+				file = request.files["pfp_url"]
 				if file.filename != "":
 					file_ext = file.filename.split('.')[-1]
 					file.save(f"{fpath}.{file_ext}")
@@ -611,7 +617,7 @@ def register():
 		if file_ext is None:
 			try:
 				# Generate a random profile pic
-				resp = requests.get(f'https://avatars.dicebear.com/api/jdenticon/{data["slikaprofila"]}.svg')
+				resp = requests.get(f'https://avatars.dicebear.com/api/jdenticon/{data["pfp_url"]}.svg')
 				with open(f"{fpath}.svg", "wb") as fp:
 					fp.write(resp.content)
 
@@ -624,19 +630,19 @@ def register():
 
 
 		# Update DB
-		user.slika_profila = f"{user.slika_profila}.{file_ext}"
+		user.pfp_url = f"{user.pfp_url}.{file_ext}"
 		current_time = datetime.now()
 		token = (uuid.uuid4().hex)[:16]
 
 		cursor.execute("""INSERT INTO korisnik
 									(korisnickoime, slikaprofila, lozinka, ime, prezime, email, titula, nivouprava, token, tokengeneriran)
 						VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);""",
-						(user.korisnicko_ime, user.slika_profila, user.lozinka, user.ime, user.prezime, user.email, user.titula, user.rank, token, current_time))
+						(user.username, user.pfp_url, user.password, user.name, user.last_name, user.email, user.title, user.rank, token, current_time))
 		conn.commit()
 
 		# Sending verification mail
 		if not debug_mail:
-			send_mail.send_verification_mail(user.ime, user.prezime, user.email, token)
+			send_mail.send_verification_mail(user.name, user.last_name, user.email, token)
 
 
 		if file_ext is None:

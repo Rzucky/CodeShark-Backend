@@ -15,9 +15,9 @@ smtp_port 	= cfg.get_config("smtp_port")
 context = ssl.create_default_context()
 
 # currently sending to MailTrap for testing
-def send_verification_mail(ime, prezime, email, token):
+def send_verification_mail(name, last_name, email, token):
 
-	message = f"""<h2>Welcome {ime} {prezime}!</h2></br>
+	message = f"""<h2>Welcome {name} {last_name}!</h2></br>
 	Thank you for signing up to CodeShark!</br>
 	Please verify your email address by clicking the <a href = "{url + token}">here!</a></br></br>
 	Please note that unverified accounts are automatically deleted in 1 hour after sign up.</br>

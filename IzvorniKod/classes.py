@@ -8,26 +8,26 @@ class Rank(IntEnum):
 	ADMIN = 3
 
 class User:
-	def __init__(self, korisnicko_ime, lozinka, slika_profila, ime, prezime, email, titula='amater', rank=Rank.COMPETITOR):
-		self.korisnicko_ime = korisnicko_ime
-		self.lozinka = lozinka
-		self.slika_profila = slika_profila
-		self.ime = ime
-		self.prezime = prezime
+	def __init__(self, username, password, pfp_url, name, last_name, email, title='amater', rank=Rank.COMPETITOR):
+		self.username = username
+		self.password = password
+		self.pfp_url = pfp_url
+		self.name = name
+		self.last_name = last_name
 		self.email = email
-		self.titula = titula
+		self.title = title
 		self.rank = rank
 
 	def __get_id(self, cursor):
-		cursor.execute("""SELECT korisnikid FROM korisnik WHERE korisnickoime = %s;""", (self.korisnicko_ime,))
-		self.korisnik_id = cursor.fetchone()[0]
+		cursor.execute("""SELECT korisnikid FROM korisnik WHERE korisnickoime = %s;""", (self.username,))
+		self.user_id = cursor.fetchone()[0]
 
 	def calc_successfully_solved(self, cursor):
 		self.__get_id(cursor)
 
 		cursor.execute("""SELECT COUNT (DISTINCT zadatakid) AS BrojTocnoRijesenih
 						FROM uploadrjesenja
-						WHERE korisnikid = %s AND prolaznost = 1;""", (self.korisnik_id,))
+						WHERE korisnikid = %s AND prolaznost = 1;""", (self.user_id,))
 		num_correctly_solved = (cursor.fetchone())[0]
 		
 		# currently for testing purposes
@@ -36,7 +36,7 @@ class User:
 
 		cursor.execute("""SELECT COUNT (DISTINCT  zadatakid) AS BrojIsprobanih
 						FROM uploadrjesenja
-						WHERE korisnikid = %s;""", (self.korisnik_id,))
+						WHERE korisnikid = %s;""", (self.user_id,))
 		num_attempted = (cursor.fetchone())[0]
 
 		# currently for testing purposes
@@ -54,7 +54,7 @@ class User:
 
 	def check_activated(self, cursor):
 		cursor.execute("""SELECT aktivan FROM korisnik 
-					WHERE korisnickoime = %s;""", (self.korisnicko_ime,))
+					WHERE korisnickoime = %s;""", (self.username,))
 		db_response = cursor.fetchone()[0]
 		return db_response
 
@@ -62,7 +62,7 @@ class User:
 		cursor.execute("""SELECT natjecanje.* 
 					FROM natjecanje JOIN korisnik 
 					ON(korisnikid = autorid) 
-					WHERE korisnik.korisnickoime =  %s;""", (self.korisnicko_ime,))
+					WHERE korisnik.korisnickoime =  %s;""", (self.username,))
 		lst = []
 		for comp in cursor.fetchall():
 			lst += [Competition(*comp)]
@@ -72,7 +72,7 @@ class User:
 		self.__get_id(cursor)
 
 		cursor.execute("""SELECT * FROM uploadrjesenja 
-					WHERE korisnikid = %s LIMIT 10;""", (self.korisnik_id,))
+					WHERE korisnikid = %s LIMIT 10;""", (self.user_id,))
 		lst = []
 		for comp in cursor.fetchall():
 			lst += [UploadedSolution(*comp)]
@@ -110,9 +110,9 @@ class User:
 		users = cursor.fetchall()
 		for user in users:
 			user_list.append({
-				"korisnickoime": f"{user[0]}",
-				"slikaprofila": f"{user[1]}",
-				"ime_prezime": f"{user[2]} {user[3]}"
+				"username": f"{user[0]}",
+				"pfp_url": f"{user[1]}",
+				"name_last_name": f"{user[2]} {user[3]}"
 			})
 		return user_list
 
@@ -142,17 +142,17 @@ class User:
 		return None
 
 class Competition:
-	def __init__(self, natjecanje_id, ime_natjecanja, tekst_natjecanja, vrijeme_kraj, vrijeme_poc, slika_trofeja, broj_zadatak, autor_id, id_klase_natjecanja, trofej_id, slug):
-		self.natjecanje_id = natjecanje_id
-		self.ime_natjecanja = ime_natjecanja
-		self.tekst_natjecanja = tekst_natjecanja
-		self.vrijeme_kraj = vrijeme_kraj
-		self.vrijeme_poc = vrijeme_poc
-		self.slika_trofeja = slika_trofeja
-		self.broj_zadatak = broj_zadatak
-		self.autor_id = autor_id
-		self.id_klase_natjecanja = id_klase_natjecanja
-		self.trofej_id = trofej_id
+	def __init__(self, comp_id, comp_name, comp_text, end_time, start_time, trophy_img, task_count, author_id, comp_class_id, trophy_id, slug):
+		self.comp_id = comp_id
+		self.comp_name = comp_name
+		self.comp_text = comp_text
+		self.end_time = end_time
+		self.start_time = start_time
+		self.trophy_img = trophy_img
+		self.task_count = task_count
+		self.author_id = author_id
+		self.comp_class_id = comp_class_id
+		self.trophy_id = trophy_id
 		self.slug = slug
 
 	def get_competition(cursor, comp_slug):
@@ -182,15 +182,15 @@ class Competition:
 		competition_list = []
 		comp_list_instances = Competition.get_n_competitions(cursor, n)
 		for comp in comp_list_instances:
-			comp_class_name, error = Competition.get_class_name_from_class_id(cursor, comp.id_klase_natjecanja)
+			comp_class_name, error = Competition.get_class_name_from_class_id(cursor, comp.comp_class_id)
 			competition_list.append({
-				"natjecanje_id":		f"{comp.natjecanje_id}",
-				"ime_natjecanja":		f"{comp.ime_natjecanja}",
-				"vrijeme_pocetak":		f"{comp.vrijeme_poc}",
-				"vrijeme_kraj":			f"{comp.vrijeme_kraj}",
-				"slika_trofeja":		f"{comp.slika_trofeja}",
-				"broj_zadataka":		f"{comp.broj_zadatak}",
-				"ime_klase_natjecanja":	f"{comp_class_name}",
+				"comp_slug":		f"{comp.slug}",
+				"comp_name":		f"{comp.comp_name}",
+				"start_time":		f"{comp.start_time}",
+				"end_time":			f"{comp.end_time}",
+				"trophy_img":		f"{comp.trophy_img}",
+				"task_count":		f"{comp.task_count}",
+				"comp_class_name":	f"{comp_class_name}",
 			})
 
 		return competition_list
@@ -231,7 +231,7 @@ class Competition:
 		user_id = cursor.fetchone()[0]
 		tasks = data["tasks"]
 		tasks = (tasks[1:-1]).split(',')
-		slug = slugify(data["imenatjecanja"])
+		slug = slugify(data["comp_name"])
 		##TODO: upload trophy pic, save the file, save path to db, take that ID and put here
 		##TODO: insert slug
 		try:
@@ -239,9 +239,9 @@ class Competition:
 													vrijemepoc, slikatrofeja, brojzadataka, 
 													autorid, idklasenatjecanja, trofejid)
 							VALUES(%s, %s ,%s, %s, %s, %s, %s, %s, %s, %s) RETURNING slug, natjecanjeid""",
-							(data["imenatjecanja"], slug, data["tekstnatjecanja"], data["vrijemekraj"], 
-							data["vrijemepoc"], data["slikatrofeja"], len(tasks),
-							user_id, 1, data["trofejid"],))
+							(data["comp_name"], slug, data["comp_text"], data["end_time"], 
+							data["start_time"], data["trophy_img"], len(tasks),
+							user_id, 1, data["trophy_id"],))
 			resp = cursor.fetchone()
 			comp_slug, comp_id = resp[0], resp[1] 
 			for task_slug in tasks:
@@ -257,17 +257,17 @@ class Competition:
 			return None, "Competition already exists"
 
 class Trophy:
-	def __init__(self, trofej_id, ime_trofeja, slika_trofeja):
-		self.trofej_id = trofej_id
-		self.ime_trofeja = ime_trofeja
-		self.slika_trofeja = slika_trofeja
+	def __init__(self, trophy_id, trophy_name, trophy_img):
+		self.trophy_id = trophy_id
+		self.trophy_name = trophy_name
+		self.trophy_img = trophy_img
 
 	@staticmethod
 	def user_trophies(cursor, user):
 		cursor.execute("""SELECT trofejid, imetrofeja, slikatrofeja 
 						FROM jeosvojio NATURAL JOIN trofej natural join korisnik 
 						WHERE jeosvojio.korisnikid = korisnik.korisnikid 
-						AND korisnickoime =  %s;""", (user.korisnicko_ime,))
+						AND korisnickoime =  %s;""", (user.username,))
 		trophies = cursor.fetchall()
 		trophies_list = []
 		for trophy in trophies:
@@ -276,16 +276,16 @@ class Trophy:
 		return trophies_list
 
 class Task:
-	def __init__(self, zadatak_id, ime_zadatka, bodovi, max_vrijeme_izvrsavanja, tekst_zadatka, privatnost, slag, autor_id, natjecanje_id):
-		self.zadatak_id = zadatak_id
-		self.ime_zadatka = ime_zadatka
-		self.bodovi = bodovi
-		self.max_vrijeme_izvrsavanja = max_vrijeme_izvrsavanja
-		self.tekst_zadatka = tekst_zadatka
-		self.privatnost = privatnost
-		self.slag = slag
-		self.autor_id = autor_id
-		self.natjecanje_id = natjecanje_id
+	def __init__(self, task_id, task_name, difficulty, max_exe_time, task_text, private, slug, author_id, comp_id):
+		self.task_id = task_id
+		self.task_name = task_name
+		self.difficulty = difficulty
+		self.max_exe_time = max_exe_time
+		self.task_text = task_text
+		self.private = private
+		self.slug = slug
+		self.author_id = author_id
+		self.comp_id = comp_id
 
 	@staticmethod
 	def get_all_public_tasks(cursor):
@@ -315,7 +315,7 @@ class Task:
 		resp = cursor.fetchone()
 		if resp is not None:
 			task = Task(*resp)
-			if task.privatnost == True:
+			if task.private == True:
 				# we won't give info if the task is private or not
 				return None, "Task does not exist"
 			
@@ -377,27 +377,27 @@ class Task:
 		return cursor.fetchone()[0]		
 
 class TestCase:
-	def __init__(self, ulaz, izlaz, zadatak_id):
-		self.ulaz = ulaz
-		self.izlaz = izlaz
-		self.zadatak_id = zadatak_id
+	def __init__(self, input, output, task_id):
+		self.input = input
+		self.output = output
+		self.task_id = task_id
 
 class UploadedSolution:
-	def __init__(self, predano_rjesenje, prolaznost, vrijeme_predaje, prosj_vrijeme_izvrsenja, korisnik_id, zadatak_id):
-		self.predano_rjesenje = predano_rjesenje
-		self.prolaznost = prolaznost
-		self.vrijeme_predaje = vrijeme_predaje
-		self.prosj_vrijeme_izvrsenja = prosj_vrijeme_izvrsenja
-		self.korisnik_id = korisnik_id
-		self.zadatak_id = zadatak_id
+	def __init__(self, submitted_solution, passed, submitted_time, avg_exe_time, user_id, task_id):
+		self.submitted_solution = submitted_solution
+		self.passed = passed
+		self.submitted_time = submitted_time
+		self.avg_exe_time = avg_exe_time
+		self.user_id = user_id
+		self.task_id = task_id
 
 class VirtualCompetition:
-	def __init__(self, virt_natjecanje_id, vrijeme_kreacije, korisnik_id, natjecanje_id, zadaci):
-		self.virt_natjecanje_id = virt_natjecanje_id
-		self.vrijeme_kreacije = vrijeme_kreacije
-		self.korisnik_id = korisnik_id
-		self.natjecanje_id = natjecanje_id
-		self.zadaci = zadaci
+	def __init__(self, virt_comp_id, created_at, user_id, comp_id, tasks):
+		self.virt_comp_id = virt_comp_id
+		self.created_at = created_at
+		self.user_id = user_id
+		self.comp_id = comp_id
+		self.tasks = tasks
 	
 	@staticmethod
 	def create_virt_competition(conn, cursor, n, username):
