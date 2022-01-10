@@ -499,10 +499,15 @@ def edit_profile():
 		if len(data) > 0:
 			return {"error": "nonexistent property or insufficient rank"}, 400
 
+
+		cursor.execute(f"SELECT slikaprofila FROM korisnik WHERE korisnickoime = %s;", (fromuser,))
+		old_pfp = cursor.fetchone()[0]
+
 		imgreceived = False
 		file_name = ""
 		file_ext = ""
-		old_fname = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(f'pfp_{User.hash_pfp_filename(fromuser)}'))
+		old_fname = os.path.join(app.config['UPLOAD_FOLDER'], old_pfp)#secure_filename(f'pfp_{User.hash_pfp_filename(fromuser)}'))
+		tmp_old_fname = os.path.join(app.config['UPLOAD_FOLDER'], f"OLD_{old_pfp}")
 		try:
 			# Accept image from form
 			if "pfp_url" in request.files:
@@ -510,10 +515,10 @@ def edit_profile():
 				if file.filename != "":
 					try:
 						if os.path.isfile(f"{old_fname}"):
-							os.rename(f"{old_fname}", f"OLD_{old_fname}")
+							os.rename(f"{old_fname}", f"{tmp_old_fname}")
 					except OSError:
-						os.remove(f"OLD_{old_fname}")
-						os.rename(f"{old_fname}", f"OLD_{old_fname}")
+						os.remove(f"{tmp_old_fname}")
+						os.rename(f"{old_fname}", f"{tmp_old_fname}")
 
 					imgreceived = True
 					file_name = secure_filename(f"pfp_{User.hash_pfp_filename(newuser)}")
@@ -524,8 +529,8 @@ def edit_profile():
 		except Exception as e:
 			imgreceived = False
 			try:
-				if os.path.isfile(f"OLD_{old_fname}"):
-					os.rename(f"OLD_{old_fname}", f"{old_fname}") ##
+				if os.path.isfile(f"{tmp_old_fname}"):
+					os.rename(f"{tmp_old_fname}", f"{old_fname}") ##
 			except OSError:
 				pass
 
@@ -546,7 +551,7 @@ def edit_profile():
 
 			if imgreceived:
 				try:
-					os.remove(f"OLD_{old_fname}")
+					os.remove(f"{tmp_old_fname}")
 				except OSError:
 					pass
 
