@@ -500,26 +500,41 @@ def edit_profile():
 			return {"error": "nonexistent property or insufficient rank"}, 400
 
 		imgreceived = False
+		file_name = ""
+		file_ext = ""
+		old_fname = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(f'pfp_{User.hash_pfp_filename(fromuser)}'))
 		try:
 			# Accept image from form
 			if "pfp_url" in request.files:
 				file = request.files["pfp_url"]
 				if file.filename != "":
+					try:
+						if os.path.isfile(f"{old_fname}"):
+							os.rename(f"{old_fname}", f"OLD_{old_fname}")
+					except OSError:
+						os.remove(f"OLD_{old_fname}")
+						os.rename(f"{old_fname}", f"OLD_{old_fname}")
+
 					imgreceived = True
-					fpath = os.path.join(app.config["UPLOAD_FOLDER"],
-										secure_filename(f"pfp_{User.hash_pfp_filename(newuser)}"))
+					file_name = secure_filename(f"pfp_{User.hash_pfp_filename(newuser)}")
+					fpath = os.path.join(app.config["UPLOAD_FOLDER"], file_name)
 					file_ext = file.filename.split('.')[-1]
 					file.save(f"{fpath}.{file_ext}")
 
 		except Exception as e:
 			imgreceived = False
+			try:
+				if os.path.isfile(f"OLD_{old_fname}"):
+					os.rename(f"OLD_{old_fname}", f"{old_fname}") ##
+			except OSError:
+				pass
 
 		if len(queryparams) == 0 and not imgreceived:
 			return {"error": "no data sent"}, 400
 
 		if imgreceived:
 			querystr += "slikaprofila = %s,"
-			queryparams += [f"pfp_{User.hash_pfp_filename(newuser)}"]
+			queryparams += [f"{file_name}.{file_ext}"]
 
 		querystr = querystr[:-1] if querystr.endswith(",") else querystr
 		querystr += f" WHERE korisnickoime = %s;"
@@ -528,6 +543,13 @@ def edit_profile():
 		try:
 			cursor.execute(querystr, queryparams)
 			conn.commit()
+
+			if imgreceived:
+				try:
+					os.remove(f"OLD_{old_fname}")
+				except OSError:
+					pass
+
 			return {"status": "profile changes accepted"}, 200
 		except Exception as e:
 			return {"error": str(e)}, 500
