@@ -1,6 +1,5 @@
 from flask import Flask, request
 from flask_cors import CORS
-from werkzeug.utils import secure_filename
 
 from datetime import datetime, timedelta
 import os
@@ -504,40 +503,28 @@ def edit_profile():
 		if len(data) > 0:
 			return {"error": "nonexistent property or insufficient rank"}, 400
 
-
 		cursor.execute(f"SELECT slikaprofila FROM korisnik WHERE korisnickoime = %s;", (fromuser,))
-		old_pfp = cursor.fetchone()[0]
+		old_pfp_url = cursor.fetchone()[0]
 
 		imgreceived = False
 		file_name = ""
 		file_ext = ""
-		old_fname = os.path.join(app.config['UPLOAD_FOLDER'], old_pfp)#secure_filename(f'pfp_{User.hash_pfp_filename(fromuser)}'))
-		tmp_old_fname = os.path.join(app.config['UPLOAD_FOLDER'], f"OLD_{old_pfp}")
+		old_fname = os.path.join(app.config['UPLOAD_FOLDER'], old_pfp_url)
+		
 		try:
 			# Accept image from form
 			if "pfp_url" in request.files:
 				file = request.files["pfp_url"]
 				if file.filename != "":
-					try:
-						if os.path.isfile(f"{old_fname}"):
-							os.rename(f"{old_fname}", f"{tmp_old_fname}")
-					except OSError:
-						os.remove(f"{tmp_old_fname}")
-						os.rename(f"{old_fname}", f"{tmp_old_fname}")
-
 					imgreceived = True
-					file_name = secure_filename(f"pfp_{User.hash_pfp_filename(newuser)}")
-					fpath = os.path.join(app.config["UPLOAD_FOLDER"], file_name)
+
+					file_name = User.generate_pfp_filename(newuser)
 					file_ext = file.filename.split('.')[-1]
+					fpath = os.path.join(app.config["UPLOAD_FOLDER"], file_name)
 					file.save(f"{fpath}.{file_ext}")
 
 		except Exception as e:
 			imgreceived = False
-			try:
-				if os.path.isfile(f"{tmp_old_fname}"):
-					os.rename(f"{tmp_old_fname}", f"{old_fname}") ##
-			except OSError:
-				pass
 
 		if len(queryparams) == 0 and not imgreceived:
 			return {"error": "no data sent"}, 400
@@ -556,7 +543,7 @@ def edit_profile():
 
 			if imgreceived:
 				try:
-					os.remove(f"{tmp_old_fname}")
+					os.remove(f"{old_fname}")
 				except OSError:
 					pass
 
@@ -620,7 +607,7 @@ def register():
 
 		user = User(data["username"],
 						User.hash_password(data["password"]),
-						f"pfp_{User.hash_pfp_filename(data['username'])}",
+						User.generate_pfp_filename(data["username"]),
 						data["name"],
 						data["last_name"],
 						data["email"],
@@ -632,7 +619,7 @@ def register():
 			return {"error": error}, 400
 
 		# Profile pic
-		fpath = os.path.join(app.config["UPLOAD_FOLDER"], secure_filename(user.pfp_url))
+		fpath = os.path.join(app.config["UPLOAD_FOLDER"], user.pfp_url)
 		try:
 			# Accept image from form
 			if "pfp_url" in request.files:

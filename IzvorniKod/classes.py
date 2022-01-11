@@ -2,6 +2,7 @@ import hashlib
 import json
 from slugify import slugify
 from enum import IntEnum
+import time
 
 class Rank(IntEnum):
 	COMPETITOR = 1
@@ -74,6 +75,11 @@ class User:
 		for comp in cursor.fetchall():
 			lst += [UploadedSolution(*comp)]
 		return lst
+	
+	@classmethod
+	def generate_pfp_filename(cls, uname):
+		hsh = cls.hash_pfp_filename(f"{uname}+{time.time()}") # (call static)
+		return f"pfp_{hsh}"
 
 	@staticmethod
 	def get_token_time(cursor, token):
@@ -98,7 +104,7 @@ class User:
 		return hashlib.sha256(plainpass.encode('utf-8')).hexdigest()
 
 	@staticmethod
-	def hash_pfp_filename(username):
+	def hash_pfp_filename(username): # not the best name but leave for compatibility
 		return hashlib.md5(username.encode('utf-8')).hexdigest()
 
 	@staticmethod
