@@ -470,7 +470,7 @@ def edit_profile():
 							WHERE korisnickoime = %s;""", (fromuser,))
 		rank = cursor.fetchone()[0]
 
-		if foruser != fromuser and fromuser != Rank.ADMIN:
+		if foruser != fromuser and rank != Rank.ADMIN:
 			return {"error": "Insufficient rank"}, 400
 
 		querystr = "UPDATE korisnik SET "
