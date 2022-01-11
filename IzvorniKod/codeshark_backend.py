@@ -463,6 +463,7 @@ def edit_profile():
 			return {"error": "user requesting edit not specified"}, 400
 
 		fromuser = data.pop("fromuser")
+		foruser = data.pop("foruser") if "foruser" in data else fromuser
 
 		cursor.execute("""SELECT nivouprava
 							FROM korisnik
@@ -480,7 +481,7 @@ def edit_profile():
 			querystr += "prezime = %s,"
 			queryparams += [data.pop("last_name")]
 
-		newuser = fromuser # Used if new profile pic was sent
+		newuser = foruser # Used if new profile pic was sent
 
 		if rank == Rank.ADMIN: # Only admin
 			if "email" in data and data["email"] != "":
@@ -503,7 +504,7 @@ def edit_profile():
 		if len(data) > 0:
 			return {"error": "nonexistent property or insufficient rank"}, 400
 
-		cursor.execute(f"SELECT slikaprofila FROM korisnik WHERE korisnickoime = %s;", (fromuser,))
+		cursor.execute(f"SELECT slikaprofila FROM korisnik WHERE korisnickoime = %s;", (foruser,))
 		old_pfp_url = cursor.fetchone()[0]
 
 		imgreceived = False
@@ -535,7 +536,7 @@ def edit_profile():
 
 		querystr = querystr[:-1] if querystr.endswith(",") else querystr
 		querystr += f" WHERE korisnickoime = %s;"
-		queryparams += [fromuser]
+		queryparams += [foruser]
 
 		try:
 			cursor.execute(querystr, queryparams)
