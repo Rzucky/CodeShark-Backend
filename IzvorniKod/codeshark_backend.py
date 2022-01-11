@@ -460,7 +460,7 @@ def edit_profile():
 		data = dict(request.form)
 
 		if "fromuser" not in data:
-			return {"error": "user requesting edit not specified"}, 400
+			return {"error": "User requesting edit not specified"}, 400
 
 		fromuser = data.pop("fromuser")
 		foruser = data.pop("foruser") if "foruser" in data else fromuser
@@ -469,6 +469,9 @@ def edit_profile():
 							FROM korisnik
 							WHERE korisnickoime = %s;""", (fromuser,))
 		rank = cursor.fetchone()[0]
+
+		if foruser != fromuser and fromuser != Rank.ADMIN:
+			return {"error": "Insufficient rank"}, 400
 
 		querystr = "UPDATE korisnik SET "
 		queryparams = []
@@ -502,7 +505,7 @@ def edit_profile():
 				queryparams += [data.pop("password")]
 
 		if len(data) > 0:
-			return {"error": "nonexistent property or insufficient rank"}, 400
+			return {"error": "Nonexistent property or insufficient rank"}, 400
 
 		cursor.execute(f"SELECT slikaprofila FROM korisnik WHERE korisnickoime = %s;", (foruser,))
 		old_pfp_url = cursor.fetchone()[0]
@@ -528,7 +531,7 @@ def edit_profile():
 			imgreceived = False
 
 		if len(queryparams) == 0 and not imgreceived:
-			return {"error": "no data sent"}, 400
+			return {"error": "No data sent"}, 400
 
 		if imgreceived:
 			querystr += "slikaprofila = %s,"
@@ -548,7 +551,7 @@ def edit_profile():
 				except OSError:
 					pass
 
-			return {"status": "profile changes accepted"}, 200
+			return {"status": "Profile changes accepted"}, 200
 		except Exception as e:
 			return {"error": str(e)}, 500
 
