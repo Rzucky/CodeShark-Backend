@@ -468,7 +468,21 @@ def edit_profile():
 		cursor.execute("""SELECT nivouprava
 							FROM korisnik
 							WHERE korisnickoime = %s;""", (fromuser,))
-		rank = cursor.fetchone()[0]
+		rank = cursor.fetchone()
+		
+		cursor.execute(f"""SELECT slikaprofila
+							FROM korisnik
+							WHERE korisnickoime = %s;""", (foruser,))
+		old_pfp_url = cursor.fetchone()
+
+		if len(rank) == 0:
+			return {"error": "User requesting edit does not exist"}, 400
+
+		if len(old_pfp_url) == 0:
+			return {"error": "User being edited does not exist"}, 400
+
+		rank = rank[0]
+		old_pfp_url = old_pfp_url[0]
 
 		if foruser != fromuser and rank != Rank.ADMIN:
 			return {"error": "Insufficient rank"}, 400
@@ -506,9 +520,6 @@ def edit_profile():
 
 		if len(data) > 0:
 			return {"error": "Nonexistent property or insufficient rank"}, 400
-
-		cursor.execute(f"SELECT slikaprofila FROM korisnik WHERE korisnickoime = %s;", (foruser,))
-		old_pfp_url = cursor.fetchone()[0]
 
 		imgreceived = False
 		file_name = ""
