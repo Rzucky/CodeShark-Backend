@@ -469,16 +469,16 @@ def edit_profile():
 							FROM korisnik
 							WHERE korisnickoime = %s;""", (fromuser,))
 		rank = cursor.fetchone()
-		
+
 		cursor.execute(f"""SELECT slikaprofila
 							FROM korisnik
 							WHERE korisnickoime = %s;""", (foruser,))
 		old_pfp_url = cursor.fetchone()
 
-		if len(rank) == 0:
+		if rank is None:
 			return {"error": "User requesting edit does not exist"}, 400
 
-		if len(old_pfp_url) == 0:
+		if old_pfp_url is None:
 			return {"error": "User being edited does not exist"}, 400
 
 		rank = rank[0]
