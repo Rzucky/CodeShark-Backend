@@ -48,7 +48,7 @@ def home():
 				"slug": f"{task.slug}"
 			})
 
-		competition_list = Competition.format_competitions(cursor, 5)
+		competition_list = Competition.get_n_closest_competitions(cursor, 5)
 
 		return {"tasks": task_list,
 				"competitions": competition_list
@@ -58,7 +58,7 @@ def home():
 def competitions():
 	conn, cursor = connect_to_db()
 	with conn, cursor:
-		competition_list = Competition.format_competitions(cursor, 50)
+		competition_list = Competition.get_n_closest_competitions(cursor, 50)
 		return {"competitions": competition_list}, 200
 
 @app.route('/create_competition', methods=['GET','POST'])
@@ -91,7 +91,7 @@ def competition(competition_slug):
 			comp, error = Competition.get_competition(cursor, competition_slug)
 			if comp is not None:
 				# this needs to be fixed to competition slug and not id 
-				author_name, author_lastname = Task.get_author_name_id(cursor, comp.author_id)
+				author_name, author_lastname = Task.get_author_name_from_comp_slug(cursor, competition_slug)
 				tasks = Competition.get_tasks_in_comp(cursor, comp.slug)
 				comp_class_name, error = Competition.get_class_name_from_class_id(cursor, comp.comp_class_id)
 				return{
@@ -148,6 +148,9 @@ def virtual_competition(virt_id=None, slug_real_comp=None):
 			username = request.headers.get('session')
 			# creates a virtual competition from a real one
 			if slug_real_comp is not None:
+				if not Competition.check_if_comp_slug_exists(cursor, slug_real_comp):
+					return {"error": 'Incorrect competition slug'}, 400
+
 				virtual_id = VirtualCompetition.insert_real_into_virt(cursor, username, slug_real_comp)	
 				return {"status": "Successfully created virtual competition from a real one",
 						"virtual_id": f"{virtual_id}"
@@ -171,6 +174,8 @@ def virtual_competition(virt_id=None, slug_real_comp=None):
 				if virt.comp_id is not None:
 					# getting tasks
 					virt.tasks, name = VirtualCompetition.get_comp_data_for_virtual_real_comp(cursor, virt.comp_id)
+					if name is None:
+						return {"error": 'Virtual competition id is not valid'}, 400
 					name = f"Virtual {name}"
 
 				return {
@@ -397,7 +402,7 @@ def profile(username):
 			return {"error": "user doesn't exist or wrong username"}, 400
 	
 		trophies_list = []
-		trophies_list_instances = Trophy.user_trophies(cursor, user)
+		trophies_list_instances = Trophy.user_trophies(cursor, username)
 		for trophy in trophies_list_instances:
 			trophies_list.append({
 				"trophy_name":	f"{trophy.trophy_name}",

@@ -1,4 +1,5 @@
 import hashlib
+import json
 from slugify import slugify
 from enum import IntEnum
 
@@ -18,25 +19,21 @@ class User:
 		self.title = title
 		self.rank = rank
 
-	def __get_id(self, cursor):
-		cursor.execute("""SELECT korisnikid FROM korisnik WHERE korisnickoime = %s;""", (self.username,))
-		self.user_id = cursor.fetchone()[0]
-
 	def calc_successfully_solved(self, cursor):
-		self.__get_id(cursor)
-
-		cursor.execute("""SELECT COUNT (DISTINCT zadatakid) AS BrojTocnoRijesenih
-						FROM uploadrjesenja
-						WHERE korisnikid = %s AND prolaznost = 1;""", (self.user_id,))
+		cursor.execute("""SELECT COUNT (DISTINCT zadatakid)
+						FROM uploadrjesenja	JOIN korisnik 
+						USING(korisnikid) 
+						WHERE korisnickoime = %s AND prolaznost = 1;""", (self.username,))
 		num_correctly_solved = (cursor.fetchone())[0]
 		
 		# currently for testing purposes
 		if num_correctly_solved == 0:
 			num_correctly_solved = 1
 
-		cursor.execute("""SELECT COUNT (DISTINCT  zadatakid) AS BrojIsprobanih
-						FROM uploadrjesenja
-						WHERE korisnikid = %s;""", (self.user_id,))
+		cursor.execute("""SELECT COUNT (DISTINCT  zadatakid)
+						FROM uploadrjesenja	JOIN korisnik 
+						USING(korisnikid) 
+						WHERE korisnickoime = %s""", (self.username,))
 		num_attempted = (cursor.fetchone())[0]
 
 		# currently for testing purposes
@@ -69,10 +66,10 @@ class User:
 		return lst
 
 	def get_submitted_solutions(self, cursor):
-		self.__get_id(cursor)
-
-		cursor.execute("""SELECT * FROM uploadrjesenja 
-					WHERE korisnikid = %s LIMIT 10;""", (self.user_id,))
+		cursor.execute("""SELECT uploadrjesenja.* 
+					FROM uploadrjesenja JOIN korisnik 
+					USING(korisnikid) 
+					WHERE korisnickoime = %s LIMIT 10;""", (self.username,))
 		lst = []
 		for comp in cursor.fetchall():
 			lst += [UploadedSolution(*comp)]
@@ -80,7 +77,8 @@ class User:
 
 	@staticmethod
 	def get_token_time(cursor, token):
-		cursor.execute("""SELECT tokengeneriran FROM korisnik WHERE token = %s;""", (token,))
+		cursor.execute("""SELECT tokengeneriran FROM korisnik 
+						WHERE token = %s;""", (token,))
 		token_timestamp = cursor.fetchone()
 		if token_timestamp is not None:
 			return token_timestamp[0]
@@ -89,9 +87,11 @@ class User:
 	@staticmethod
 	def set_activated(cursor, token):
 		# Activating user
-		cursor.execute("""UPDATE korisnik SET aktivan = %s WHERE token = %s;""", (True, token,))
+		cursor.execute("""UPDATE korisnik SET aktivan = %s 
+						WHERE token = %s;""", (True, token,))
 		# Removing token from db
-		cursor.execute("""UPDATE korisnik SET token = %s, tokengeneriran = %s WHERE token = %s;""", (None, None, token,))
+		cursor.execute("""UPDATE korisnik SET token = %s, tokengeneriran = %s 
+						WHERE token = %s;""", (None, None, token,))
 
 	@staticmethod
 	def hash_password(plainpass):
@@ -119,12 +119,14 @@ class User:
 	@staticmethod
 	def check_if_user_exists(cursor, username, email):
 		# checking for taken username and email
-		cursor.execute("SELECT * FROM korisnik WHERE email = %s;", (email,))
+		cursor.execute("""SELECT * FROM korisnik 
+						WHERE email = %s;""", (email,))
 		db_response = cursor.fetchone()
 		if db_response is not None:
 			return True, "Email already in use"
 
-		cursor.execute("SELECT * FROM korisnik WHERE korisnickoIme = %s;", (username,))
+		cursor.execute("""SELECT * FROM korisnik 
+						WHERE korisnickoIme = %s;""", (username,))
 		db_response = cursor.fetchone()
 		if db_response is not None:
 			return True, "Username taken"
@@ -132,7 +134,8 @@ class User:
 
 	@staticmethod
 	def get_user(cursor, username):
-		cursor.execute("SELECT * FROM korisnik WHERE korisnickoime = %s;", (username,))
+		cursor.execute("""SELECT * FROM korisnik 
+						WHERE korisnickoime = %s;""", (username,))
 		resp = cursor.fetchone()
 		if resp is not None:
 			# ignore user ID and token related elements
@@ -165,22 +168,25 @@ class Competition:
 		return None, "Competition does not exist"
 
 	@staticmethod
-	def get_n_competitions(cursor, n):
+	def get_n_closest_competitions(cursor, n):
 		comp_list = []
-		## needs changing to closest to start
+		# gets competitions closes to the start time
 		cursor.execute("""SELECT * FROM natjecanje
-						ORDER BY natjecanjeid DESC LIMIT %s;""", (n,))
+					WHERE (CURRENT_TIMESTAMP < vrijemekraj)
+					ORDER BY vrijemepoc ASC
+					LIMIT %s;""", (n,))
 		resp = cursor.fetchall()
 		for comp in resp:
 			comp_ins = Competition(*comp)
 			comp_list.append(comp_ins)
 		
-		return comp_list
+		# format to the form to show on front page and comp page
+		competition_list = Competition.format_competitions(cursor, comp_list)
+		return competition_list
 
 	@staticmethod
-	def format_competitions(cursor, n):
+	def format_competitions(cursor, comp_list_instances):
 		competition_list = []
-		comp_list_instances = Competition.get_n_competitions(cursor, n)
 		for comp in comp_list_instances:
 			comp_class_name, error = Competition.get_class_name_from_class_id(cursor, comp.comp_class_id)
 			competition_list.append({
@@ -217,44 +223,47 @@ class Competition:
 			return resp[0], None
 		return None, "Class name doesn't exist"
 
-	# @staticmethod
-	# def get_task_ids_in_comp(cursor, comp_id):
-	# 	cursor.execute("""SELECT zadatakid 
-	# 				FROM zadatak 
-	# 				WHERE natjecanjeid = %s""",(comp_id,))
-	# 	return [i[0] for i in cursor.fetchall()]
-
 	@staticmethod
 	def create_competition(cursor, data):
-		## TODO: change to work with username
-		cursor.execute("""SELECT korisnikid FROM korisnik WHERE korisnickoime = %s;""", (data["username"],))
-		user_id = cursor.fetchone()[0]
-		tasks = data["tasks"]
-		tasks = (tasks[1:-1]).split(',')
+		tasks = json.loads(data["tasks"])
 		slug = slugify(data["comp_name"])
 		##TODO: upload trophy pic, save the file, save path to db, take that ID and put here
-		##TODO: insert slug
+		
 		try:
 			cursor.execute("""INSERT INTO natjecanje(imenatjecanja, slug, tekstnatjecanja, vrijemekraj, 
 													vrijemepoc, slikatrofeja, brojzadataka, 
 													autorid, idklasenatjecanja, trofejid)
-							VALUES(%s, %s ,%s, %s, %s, %s, %s, %s, %s, %s) RETURNING slug, natjecanjeid""",
+							VALUES(%s, %s ,%s, %s, %s, %s, %s,
+								(SELECT korisnikid FROM korisnik WHERE korisnickoime = %s),
+								%s, %s) 
+								RETURNING slug, natjecanjeid""",
 							(data["comp_name"], slug, data["comp_text"], data["end_time"], 
 							data["start_time"], data["trophy_img"], len(tasks),
-							user_id, 1, data["trophy_id"],))
+							data["username"], 1, data["trophy_id"],))
 			resp = cursor.fetchone()
-			comp_slug, comp_id = resp[0], resp[1] 
-			for task_slug in tasks:
-				cursor.execute("""UPDATE zadatak
-							SET natjecanjeid = %s, 
-								privatnost = false
-							WHERE zadatak.slug= %s;"""
-							,(comp_id, task_slug[1:-1]))
-				## lets ignore possiblities of errors for now
-			return comp_slug, None
+			comp_slug, comp_id = resp[0], resp[1]
 		except Exception as e:
-			print(e)
-			return None, "Competition already exists"
+			return None, "Error while creating competition"
+		
+		# only public the tasks if the competition was successful
+		for task_slug in tasks:
+			cursor.execute("""UPDATE zadatak
+						SET natjecanjeid = %s, 
+							privatnost = false
+						WHERE zadatak.slug= %s;"""
+						,(comp_id, task_slug.strip()))
+		return comp_slug, None
+	
+
+	@staticmethod
+	def check_if_comp_slug_exists(cursor, slug):
+		cursor.execute("""SELECT * FROM natjecanje
+						WHERE slug = %s""", (slug,))
+		resp = cursor.fetchone()
+		if resp is not None:
+			return True
+		return False
+
 
 class Trophy:
 	def __init__(self, trophy_id, trophy_name, trophy_img):
@@ -263,11 +272,11 @@ class Trophy:
 		self.trophy_img = trophy_img
 
 	@staticmethod
-	def user_trophies(cursor, user):
+	def user_trophies(cursor, username):
 		cursor.execute("""SELECT trofejid, imetrofeja, slikatrofeja 
-						FROM jeosvojio NATURAL JOIN trofej natural join korisnik 
-						WHERE jeosvojio.korisnikid = korisnik.korisnikid 
-						AND korisnickoime =  %s;""", (user.username,))
+						FROM jeosvojio JOIN korisnik 
+						USING(korisnikid) NATURAL JOIN trofej
+						WHERE korisnickoime =  %s;""", (username,))
 		trophies = cursor.fetchall()
 		trophies_list = []
 		for trophy in trophies:
@@ -290,7 +299,9 @@ class Task:
 	@staticmethod
 	def get_all_public_tasks(cursor):
 		public_tasks = []
-		cursor.execute("""SELECT * FROM zadatak WHERE privatnost = false limit 50;""")
+		cursor.execute("""SELECT * FROM zadatak 
+						WHERE privatnost = false 
+						LIMIT 50;""")
 		tasks = cursor.fetchall()
 
 		for task in tasks:
@@ -301,17 +312,18 @@ class Task:
 
 	@staticmethod
 	def get_random_tasks(cursor, n):
-		cursor.execute("""SELECT zadatakid
-						FROM zadatak WHERE zadatak.privatnost = false
+		cursor.execute("""SELECT zadatakid FROM zadatak 
+						WHERE zadatak.privatnost = false
 						ORDER BY RANDOM () 
-						limit %s;""", n)
+						LIMIT %s;""", n)
 		random_tasks = [i[0] for i in cursor.fetchall()]
 	
 		return random_tasks
 
 	@staticmethod
 	def get_task(cursor, slug):
-		cursor.execute("""SELECT * FROM zadatak WHERE slug = %s;""", (slug,))
+		cursor.execute("""SELECT * FROM zadatak 
+						WHERE slug = %s;""", (slug,))
 		resp = cursor.fetchone()
 		if resp is not None:
 			task = Task(*resp)
@@ -326,18 +338,19 @@ class Task:
 	@staticmethod
 	def get_author_name(cursor, slug):
 		cursor.execute("""SELECT ime, prezime 
-					FROM zadatak NATURAL JOIN korisnik 
-					WHERE korisnik.korisnikid = zadatak.autorid 
-					AND zadatak.slug = %s;""", (slug,))	
+					FROM zadatak JOIN korisnik 
+					ON(korisnikid = autorid)
+					WHERE zadatak.slug = %s;""", (slug,))	
 		resp = cursor.fetchone()
 
 		return resp[0], resp[1]
 
-	#TODO: needs to be fixed to slug
 	@staticmethod
-	def get_author_name_id(cursor, id):
-		cursor.execute("""SELECT ime, prezime FROM korisnik 
-					WHERE korisnik.korisnikid = %s;""", (id,))	
+	def get_author_name_from_comp_slug(cursor, comp_slug):
+		cursor.execute("""SELECT ime, prezime 
+					FROM korisnik JOIN natjecanje 
+					ON(autorid = korisnikid)
+					WHERE slug =  %s;""", (comp_slug,))	
 		resp = cursor.fetchone()
 
 		return resp[0], resp[1]
@@ -403,7 +416,8 @@ class VirtualCompetition:
 	def create_virt_competition(conn, cursor, n, username):
 		tasks = Task.get_random_tasks(cursor, n)
 		cursor.execute("""INSERT INTO virtnatjecanje (vrijemekreacije, korisnikid, zadaci) 
-						VALUES ( NOW(),
+						VALUES (
+							NOW(),
 							(SELECT korisnikid FROM korisnik
 								WHERE korisnickoime = %s),
 							%s)
@@ -411,7 +425,8 @@ class VirtualCompetition:
 		resp = (cursor.fetchone())[0]
 		conn.commit()
 
-		cursor.execute("""SELECT * from virtnatjecanje WHERE virtnatjecanjeid = %s""", (resp,))
+		cursor.execute("""SELECT * from virtnatjecanje 
+						WHERE virtnatjecanjeid = %s""", (resp,))
 		
 		return VirtualCompetition( *(cursor.fetchone()))
 
@@ -439,7 +454,7 @@ class VirtualCompetition:
 
 	@staticmethod
 	def get_comp_data_for_virtual_real_comp(cursor, comp_id):
-	## potentially change to slug in the future
+		# returns slugs and the name of the competition
 		cursor.execute("""SELECT zadatak.slug, imenatjecanja
 						FROM natjecanje JOIN zadatak
 						USING(natjecanjeid)
@@ -465,14 +480,11 @@ class VirtualCompetition:
 	
 	@staticmethod
 	def insert_real_into_virt(cursor, username, slug):
-		## TODO: dont use userid
-		cursor.execute("""SELECT korisnikid FROM korisnik WHERE korisnickoime = %s;""", (username,))
-		user_id = cursor.fetchone()[0]
 		cursor.execute("""INSERT INTO virtnatjecanje
-					(vrijemekreacije,korisnikid, natjecanjeid)
+					(vrijemekreacije, korisnikid, natjecanjeid)
 					VALUES(NOW(), 
-							%s, 
+							(SELECT korisnikid FROM korisnik WHERE korisnickoime = %s), 
 							(SELECT natjecanjeid FROM natjecanje WHERE slug = %s)) RETURNING virtnatjecanjeid;"""
-					,(user_id, slug,))
+					,(username, slug,))
 		return cursor.fetchone()[0]
 		
