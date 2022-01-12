@@ -246,6 +246,7 @@ def create_task():
 	conn, cursor = connect_to_db()
 	with conn, cursor:
 		data = request.json
+		data["username"] = request.headers.get('session') ##
 
 		cursor.execute(f"""SELECT nivouprava
 							FROM korisnik
@@ -269,6 +270,9 @@ def create_task():
 								(data["task_name"], data["difficulty"], data["max_exe_time"], data["task_text"], data["private"], slugify(data["task_name"]), data["username"]))
 
 			taskid = cursor.fetchone()[0]
+
+			if "test_cases" not in data or len(data["test_cases"]) < 10:
+				return {"error": "Not enough test cases"}, 400
 
 			for tc in data["test_cases"]:
 				cursor.execute(f"""INSERT INTO testprimjer
