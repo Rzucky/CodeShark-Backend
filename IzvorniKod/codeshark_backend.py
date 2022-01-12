@@ -82,7 +82,7 @@ def create_competition():
 		elif request.method == 'POST':
 			data = dict(request.form)
 
-			img_good = False
+			img_uploaded = False
 			trophy_file = ""
 			try:
 				# Accept image from form
@@ -93,12 +93,12 @@ def create_competition():
 						file_ext = file.filename.split('.')[-1]
 						trophy_file = f"{file_name}.{file_ext}"
 						file.save(os.path.join(cfg.get_config("trophy_upload_dir"), trophy_file))
-						img_good = True
+						img_uploaded = True
 			except Exception as e:
 				trophy_file = cfg.get_config("default_trophy_img")
 
 			try:
-				if img_good:
+				if img_uploaded:
 					# Update db
 					cursor.execute(f"""INSERT INTO trofej
 										(imetrofeja, slikatrofeja)
@@ -106,11 +106,13 @@ def create_competition():
 					conn.commit()
 
 			except psycopg2.errors.UniqueViolation:
-				if img_good:
+				if img_uploaded:
 					os.remove(os.path.join(cfg.get_config("trophy_upload_dir"), trophy_file))
 				return {"error": "Trophy with the same name already exists"}, 400
 
+			data["username"] = username
 			comp_slug, error = Competition.create_competition(cursor, data, trophy_file)
+			conn.commit()
 			if comp_slug is not None:
 				return {"comp_slug": comp_slug}, 200
 			return {"error": error}, 400
