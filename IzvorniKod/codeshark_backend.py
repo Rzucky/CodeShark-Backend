@@ -10,6 +10,8 @@ import subprocess as subp
 import time
 import uuid
 
+from slugify.slugify import slugify
+
 from classes import Rank, User, Competition, Trophy, VirtualCompetition, Task, TestCase, UploadedSolution
 import codeshark_config as cfg
 import send_mail
@@ -238,6 +240,54 @@ def tasks():
 				"slug":		f"{task.slug}"
 			})
 		return {"tasks": task_list}, 200
+
+@app.route('/create_task', methods=['POST'])
+def create_task():
+	conn, cursor = connect_to_db()
+	with conn, cursor:
+		data = request.json
+
+		cursor.execute(f"""SELECT nivouprava
+							FROM korisnik
+							WHERE korisnickoime = %s;""", (data["username"],))
+		rank = cursor.fetchone()
+		if rank is None:
+			return {"error": "User does not exist"}, 400
+
+		rank = rank[0]
+
+		if rank not in [Rank.LEADER, Rank.ADMIN]:
+			return {"error": "Insufficient rank"}, 400
+
+		try:
+			cursor.execute(f"""INSERT INTO zadatak
+								(imezadatka, bodovi, maxvrijemeizvrs, tekstzadatka, privatnost, slug, autorid)
+								VALUES (%s, %s, %s, %s, %s, %s, (SELECT korisnikid
+																	FROM korisnik
+																	WHERE korisnickoime = %s))
+								RETURNING zadatakid;""",
+								(data["task_name"], data["difficulty"], data["max_exe_time"], data["task_text"], data["private"], slugify(data["task_name"]), data["username"]))
+
+			taskid = cursor.fetchone()[0]
+
+			for tc in data["test_cases"]:
+				cursor.execute(f"""INSERT INTO testprimjer
+									(ulaz, izlaz, zadatakid)
+									VALUES (%s, %s, %s);
+								""", (tc["input"], tc["output"], taskid))
+		except KeyError:
+			conn.rollback()
+			return {"error": "Insufficient data"}, 400
+
+		except psycopg2.errors.UniqueViolation:
+			conn.rollback()
+			return {"error": "Already exists"}, 400
+		
+		conn.commit()
+
+		return {"status": "Created task"}, 200
+
+
 
 @app.route('/execute_task', methods=['POST'])
 def execute_task():
