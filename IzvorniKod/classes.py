@@ -230,11 +230,18 @@ class Competition:
 		return None, "Class name doesn't exist"
 
 	@staticmethod
-	def create_competition(cursor, data):
+	def create_competition(cursor, data, trophy_file):
 		tasks = json.loads(data["tasks"])
 		slug = slugify(data["comp_name"])
-		##TODO: upload trophy pic, save the file, save path to db, take that ID and put here
-		
+
+		try:
+			cursor.execute(f"""SELECT trofejid
+								FROM trofej
+								WHERE slikatrofeja = %s;""", (trophy_file,))
+			trophy_id = cursor.fetchone()[0]
+		except Exception as e:
+			return None, "Trophy does not exist"
+
 		try:
 			cursor.execute("""INSERT INTO natjecanje(imenatjecanja, slug, tekstnatjecanja, vrijemekraj, 
 													vrijemepoc, slikatrofeja, brojzadataka, 
@@ -244,19 +251,20 @@ class Competition:
 								%s, %s) 
 								RETURNING slug, natjecanjeid""",
 							(data["comp_name"], slug, data["comp_text"], data["end_time"], 
-							data["start_time"], data["trophy_img"], len(tasks),
-							data["username"], 1, data["trophy_id"],))
+							data["start_time"], trophy_file, len(tasks),
+							data["username"], 1, trophy_id,))
 			resp = cursor.fetchone()
 			comp_slug, comp_id = resp[0], resp[1]
+			
 		except Exception as e:
 			return None, "Error while creating competition"
 		
 		# only public the tasks if the competition was successful
 		for task_slug in tasks:
 			cursor.execute("""UPDATE zadatak
-						SET natjecanjeid = %s, 
-							privatnost = false
-						WHERE zadatak.slug= %s;"""
+								SET natjecanjeid = %s, 
+									privatnost = false
+								WHERE zadatak.slug = %s;"""
 						,(comp_id, task_slug.strip()))
 		return comp_slug, None
 	
@@ -289,6 +297,11 @@ class Trophy:
 			trophies_list.append(Trophy(*trophy))
 
 		return trophies_list
+
+	@staticmethod
+	def generate_trophy_filename(uname):
+		hsh = User.hash_pfp_filename(f"{uname}+{time.time()}")
+		return f"trophy_{hsh}"
 
 class Task:
 	def __init__(self, task_id, task_name, difficulty, max_exe_time, task_text, private, slug, author_id, comp_id):

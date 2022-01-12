@@ -25,8 +25,9 @@ app = Flask(__name__)
 CORS(app)
 
 
-app.config["UPLOAD_FOLDER"] = cfg.get_config("img_upload_dir")	# Folder must already exist !
-app.config["MAX_CONTENT_LENGTH"] = cfg.get_config("max_content_length")	# bytes [=1 MB]
+app.config["IMG_UPLOAD_FOLDER"] = cfg.get_config("img_upload_dir") # Folder must already exist !
+app.config["TROPHY_UPLOAD_FOLDER"] = cfg.get_config("trophy_upload_dir") # Folder must already exist !
+app.config["MAX_CONTENT_LENGTH"] = cfg.get_config("max_content_length") # bytes [=1 MB]
 
 def connect_to_db():
 	conn = psycopg2.connect(database	= cfg.get_config("postgres_name"),
@@ -66,8 +67,9 @@ def competitions():
 def create_competition():
 	conn, cursor = connect_to_db()
 	with conn, cursor:
+		username = request.headers.get('session')
+		
 		if request.method == 'GET':
-			username = request.headers.get('session')
 			task_list = []
 			task_list_instances = Task.get_private_tasks(cursor, username)
 			for task in task_list_instances:
@@ -79,7 +81,36 @@ def create_competition():
 
 		elif request.method == 'POST':
 			data = dict(request.form)
-			comp_slug, error = Competition.create_competition(cursor, data)
+
+			img_good = False
+			trophy_file = ""
+			try:
+				# Accept image from form
+				if "trophy_img" in request.files:
+					file = request.files["trophy_img"]
+					if file.filename != "":
+						file_name = Trophy.generate_trophy_filename(username)
+						file_ext = file.filename.split('.')[-1]
+						trophy_file = f"{file_name}.{file_ext}"
+						file.save(os.path.join(cfg.get_config("trophy_upload_dir"), trophy_file))
+						img_good = True
+			except Exception as e:
+				trophy_file = cfg.get_config("default_trophy_img")
+
+			try:
+				if img_good:
+					# Update db
+					cursor.execute(f"""INSERT INTO trofej
+										(imetrofeja, slikatrofeja)
+										VALUES (%s, %s);""", (data["trophy_name"], trophy_file))
+					conn.commit()
+
+			except psycopg2.errors.UniqueViolation:
+				if img_good:
+					os.remove(os.path.join(cfg.get_config("trophy_upload_dir"), trophy_file))
+				return {"error": "Trophy with the same name already exists"}, 400
+
+			comp_slug, error = Competition.create_competition(cursor, data, trophy_file)
 			if comp_slug is not None:
 				return {"comp_slug": comp_slug}, 200
 			return {"error": error}, 400
@@ -552,6 +583,10 @@ def edit_profile():
 			querystr += "prezime = %s,"
 			queryparams += [data.pop("last_name")]
 
+		if "password" in data and data["password"] != "":
+			querystr += "lozinka = %s,"
+			queryparams += [data.pop("password")]
+
 		newuser = foruser # Used if new profile pic was sent
 
 		if rank == Rank.ADMIN: # Only admin
@@ -567,10 +602,6 @@ def edit_profile():
 				querystr += "korisnickoime = %s,"
 				newuser = data.pop("username")
 				queryparams += [newuser]
-
-			if "password" in data and data["password"] != "":
-				querystr += "lozinka = %s,"
-				queryparams += [data.pop("password")]
 
 		if len(data) > 0:
 			return {"error": "Nonexistent property or insufficient rank"}, 400
@@ -589,7 +620,7 @@ def edit_profile():
 
 					file_name = User.generate_pfp_filename(newuser)
 					file_ext = file.filename.split('.')[-1]
-					fpath = os.path.join(app.config["UPLOAD_FOLDER"], file_name)
+					fpath = os.path.join(app.config["IMG_UPLOAD_FOLDER"], file_name)
 					file.save(f"{fpath}.{file_ext}")
 
 		except Exception as e:
@@ -688,7 +719,7 @@ def register():
 			return {"error": error}, 400
 
 		# Profile pic
-		fpath = os.path.join(app.config["UPLOAD_FOLDER"], user.pfp_url)
+		fpath = os.path.join(app.config["IMG_UPLOAD_FOLDER"], user.pfp_url)
 		try:
 			# Accept image from form
 			if "pfp_url" in request.files:

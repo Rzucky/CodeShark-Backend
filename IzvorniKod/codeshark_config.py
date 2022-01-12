@@ -1,8 +1,8 @@
 ##############################
 # Codeshark config manager
 #
-# - load_config()
-# - save_config()
+# - load_config(file=None)
+# - save_config(file=None)
 # - get_config(key)
 # - set_config(key, value)
 #
