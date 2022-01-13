@@ -329,15 +329,72 @@ class Task:
 
 		return public_tasks		
 
+	# used to create random tasks with an uniform spread of difficulty
 	@staticmethod
 	def get_random_tasks(cursor, n):
+		# if just 1, fully random
+		if n == 1:
+			cursor.execute("""SELECT zadatakid FROM zadatak 
+						WHERE privatnost = false
+						ORDER BY RANDOM ()
+						LIMIT 1;""")
+			return cursor.fetchone()[0]
+
+		task_list = set()
+		cursor.execute("""SELECT COUNT(DISTINCT zadatakid) 
+						FROM zadatak WHERE privatnost = false;""")
+		count = cursor.fetchone()[0]
+		if n  > 10 or n > count:
+			n = min(10, count)
+		
+		# ceil function without importing math
+		easier_n = n // 2 + (n % 2 > 0)
+		harder_n = n - easier_n
+
+		# easier tasks
 		cursor.execute("""SELECT zadatakid FROM zadatak 
-						WHERE zadatak.privatnost = false
-						ORDER BY RANDOM () 
-						LIMIT %s;""", n)
-		random_tasks = [i[0] for i in cursor.fetchall()]
-	
-		return random_tasks
+						WHERE privatnost = false 
+						AND bodovi IN(1, 2, 3)
+						ORDER BY RANDOM ()
+						LIMIT %s;""", (easier_n,))
+		resp = cursor.fetchall()
+		for i in resp:
+			task_list.add(i[0])
+
+		# harder tasks
+		cursor.execute("""SELECT zadatakid FROM zadatak 
+						WHERE privatnost = false 
+						AND bodovi IN(3, 4, 5)
+						ORDER BY RANDOM ()
+						LIMIT %s""", (harder_n,))
+		resp = cursor.fetchall()
+		for i in resp:
+			task_list.add(i[0])
+
+		# if there aren't enough tasks of some kind, add randoms
+		if len(task_list) < n:
+			cursor.execute("""SELECT zadatakid FROM zadatak 
+						WHERE privatnost = false
+						ORDER BY RANDOM ()
+						LIMIT %s""", (n - len(task_list),))
+		resp = cursor.fetchall()
+		for i in resp:
+			task_list.add(i[0])	
+
+		# in case we get a duplicate task, 
+		# keeps trying until it finds a new one 
+		while(len(task_list) < n):
+			cursor.execute("""SELECT zadatakid FROM zadatak 
+						WHERE privatnost = false
+						ORDER BY RANDOM ()
+						LIMIT 1""")
+			task = cursor.fetchone()[0]
+			if task is not None:
+				task_list.add(task)
+			else:
+				# no tasks remaining
+				return list(task_list)
+		return list(task_list)
 
 	@staticmethod
 	def get_task(cursor, slug):
@@ -430,7 +487,7 @@ class VirtualCompetition:
 		self.user_id = user_id
 		self.comp_id = comp_id
 		self.tasks = tasks
-	
+
 	@staticmethod
 	def create_virt_competition(conn, cursor, n, username):
 		tasks = Task.get_random_tasks(cursor, n)
@@ -446,7 +503,7 @@ class VirtualCompetition:
 
 		cursor.execute("""SELECT * from virtnatjecanje 
 						WHERE virtnatjecanjeid = %s""", (resp,))
-		
+
 		return VirtualCompetition( *(cursor.fetchone()))
 
 	@staticmethod
