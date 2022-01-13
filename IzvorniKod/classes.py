@@ -4,6 +4,9 @@ from slugify import slugify
 from enum import IntEnum
 import time
 
+from database import PGDB
+db = PGDB()
+
 class Rank(IntEnum):
 	COMPETITOR = 1
 	LEADER = 2
@@ -20,22 +23,23 @@ class User:
 		self.title = title
 		self.rank = rank
 
-	def calc_successfully_solved(self, cursor):
-		cursor.execute("""SELECT COUNT (DISTINCT zadatakid)
-						FROM uploadrjesenja	JOIN korisnik 
-						USING(korisnikid) 
-						WHERE korisnickoime = %s AND prolaznost = 1;""", (self.username,))
-		num_correctly_solved = (cursor.fetchone())[0]
+	def calc_successfully_solved(self):
+		num_correctly_solved = db.query("""SELECT COUNT (DISTINCT zadatakid)
+											FROM uploadrjesenja
+											JOIN korisnik 
+												USING(korisnikid) 
+											WHERE korisnickoime = %s
+												AND prolaznost = 1;""", self.username)
 		
 		# currently for testing purposes
 		if num_correctly_solved == 0:
 			num_correctly_solved = 1
 
-		cursor.execute("""SELECT COUNT (DISTINCT  zadatakid)
-						FROM uploadrjesenja	JOIN korisnik 
-						USING(korisnikid) 
-						WHERE korisnickoime = %s""", (self.username,))
-		num_attempted = (cursor.fetchone())[0]
+		num_attempted = db.query("""SELECT COUNT (DISTINCT  zadatakid)
+									FROM uploadrjesenja
+									JOIN korisnik 
+										USING(korisnikid) 
+									WHERE korisnickoime = %s""", self.username)
 
 		# currently for testing purposes
 		if num_attempted == 0:
@@ -50,29 +54,28 @@ class User:
 		else:
 			return 0
 
-	def check_activated(self, cursor):
-		cursor.execute("""SELECT aktivan FROM korisnik 
-					WHERE korisnickoime = %s;""", (self.username,))
-		db_response = cursor.fetchone()[0]
-		return db_response
+	def check_activated(self):
+		return db.query("""SELECT aktivan FROM korisnik 
+							WHERE korisnickoime = %s;""", self.username)
 
-	def get_created_competitons(self, cursor):
-		cursor.execute("""SELECT natjecanje.* 
-					FROM natjecanje JOIN korisnik 
-					ON(korisnikid = autorid) 
-					WHERE korisnik.korisnickoime =  %s;""", (self.username,))
+	def get_created_competitons(self):
 		lst = []
-		for comp in cursor.fetchall():
+		for comp in db.query("""SELECT natjecanje.* 
+								FROM natjecanje
+								JOIN korisnik 
+									ON (korisnikid = autorid) 
+								WHERE korisnik.korisnickoime = %s;""", self.username):
 			lst += [Competition(*comp)]
 		return lst
 
-	def get_submitted_solutions(self, cursor):
-		cursor.execute("""SELECT uploadrjesenja.* 
-					FROM uploadrjesenja JOIN korisnik 
-					USING(korisnikid) 
-					WHERE korisnickoime = %s LIMIT 10;""", (self.username,))
+	def get_submitted_solutions(self):
 		lst = []
-		for comp in cursor.fetchall():
+		for comp in db.query("""SELECT uploadrjesenja.* 
+								FROM uploadrjesenja
+								JOIN korisnik 
+									USING(korisnikid) 
+								WHERE korisnickoime = %s
+								LIMIT 10;""", self.username):
 			lst += [UploadedSolution(*comp)]
 		return lst
 	
@@ -82,22 +85,24 @@ class User:
 		return f"pfp_{hsh}"
 
 	@staticmethod
-	def get_token_time(cursor, token):
-		cursor.execute("""SELECT tokengeneriran FROM korisnik 
-						WHERE token = %s;""", (token,))
-		token_timestamp = cursor.fetchone()
-		if token_timestamp is not None:
-			return token_timestamp[0]
+	def get_token_time(token):
+		token_timestamp = db.query("""SELECT tokengeneriran FROM korisnik 
+										WHERE token = %s;""", token)
+		if token_timestamp:
+			return token_timestamp
 		return None
 
 	@staticmethod
-	def set_activated(cursor, token):
+	def set_activated(token):
 		# Activating user
-		cursor.execute("""UPDATE korisnik SET aktivan = %s 
-						WHERE token = %s;""", (True, token,))
+		db.query("""UPDATE korisnik
+					SET aktivan = %s 
+					WHERE token = %s""", True, token)
 		# Removing token from db
-		cursor.execute("""UPDATE korisnik SET token = %s, tokengeneriran = %s 
-						WHERE token = %s;""", (None, None, token,))
+		db.query("""UPDATE korisnik
+					SET token = %s,
+						tokengeneriran = %s 
+					WHERE token = %s""", None, None, token)
 
 	@staticmethod
 	def hash_password(plainpass):
@@ -108,13 +113,11 @@ class User:
 		return hashlib.md5(username.encode('utf-8')).hexdigest()
 
 	@staticmethod
-	def get_users_asc(cursor):
+	def get_users_asc():
 		user_list = []
-		cursor.execute("""SELECT korisnickoime, slikaprofila, ime, prezime
-						FROM korisnik
-						ORDER BY korisnickoime ASC;""")
-		users = cursor.fetchall()
-		for user in users:
+		for user in db.query("""SELECT korisnickoime, slikaprofila, ime, prezime
+								FROM korisnik
+								ORDER BY korisnickoime ASC;"""):
 			user_list.append({
 				"username": f"{user[0]}",
 				"pfp_url": f"{user[1]}",
@@ -123,31 +126,24 @@ class User:
 		return user_list
 
 	@staticmethod
-	def check_if_user_exists(cursor, username, email):
+	def check_if_user_exists(username, email):
 		# checking for taken username and email
-		cursor.execute("""SELECT * FROM korisnik 
-						WHERE email = %s;""", (email,))
-		db_response = cursor.fetchone()
-		if db_response is not None:
+		if db.query("""SELECT * FROM korisnik WHERE email = %s""", email):
 			return True, "Email already in use"
 
-		cursor.execute("""SELECT * FROM korisnik 
-						WHERE korisnickoIme = %s;""", (username,))
-		db_response = cursor.fetchone()
-		if db_response is not None:
+		if db.query("""SELECT * FROM korisnik WHERE korisnickoIme = %s""", username):
 			return True, "Username taken"
+
 		return False, None
 
 	@staticmethod
-	def get_user(cursor, username):
-		cursor.execute("""SELECT * FROM korisnik 
-						WHERE korisnickoime = %s;""", (username,))
-		resp = cursor.fetchone()
-		if resp is not None:
-			# ignore user ID and token related elements
-			resp = resp[1:-3] 
-			user = User(*resp)
-			return user
+	def get_user(username):
+		resp = db.query("""SELECT *
+							FROM korisnik 
+							WHERE korisnickoime = %s;""", username)
+		if resp:
+			resp = resp[1:-3]
+			return User(*resp)
 		return None
 
 class Competition:
@@ -164,37 +160,30 @@ class Competition:
 		self.trophy_id = trophy_id
 		self.slug = slug
 
-	def get_competition(cursor, comp_slug):
-		cursor.execute("""SELECT * FROM natjecanje 
-						WHERE slug = %s""", (comp_slug,))
-		resp = cursor.fetchone()
-		if resp is not None:
-			comp = Competition(*resp)
-			return comp, None
+	def get_competition(comp_slug):
+		resp = db.query("""SELECT * FROM natjecanje 
+							WHERE slug = %s""", comp_slug)
+		if resp:
+			return Competition(*resp), None
 		return None, "Competition does not exist"
 
 	@staticmethod
-	def get_n_closest_competitions(cursor, n):
+	def get_n_closest_competitions(n):
 		comp_list = []
-		# gets competitions closes to the start time
-		cursor.execute("""SELECT * FROM natjecanje
+		for comp in db.query("""SELECT * FROM natjecanje
 					WHERE (CURRENT_TIMESTAMP < vrijemekraj)
 					ORDER BY vrijemepoc ASC
-					LIMIT %s;""", (n,))
-		resp = cursor.fetchall()
-		for comp in resp:
-			comp_ins = Competition(*comp)
-			comp_list.append(comp_ins)
+					LIMIT %s;""", n):
+			comp_list += [Competition(*comp)]
 		
 		# format to the form to show on front page and comp page
-		competition_list = Competition.format_competitions(cursor, comp_list)
-		return competition_list
+		return Competition.format_competitions(comp_list)
 
 	@staticmethod
-	def format_competitions(cursor, comp_list_instances):
+	def format_competitions(comp_list_instances):
 		competition_list = []
 		for comp in comp_list_instances:
-			comp_class_name, error = Competition.get_class_name_from_class_id(cursor, comp.comp_class_id)
+			comp_class_name, error = Competition.get_class_name_from_class_id(comp.comp_class_id)
 			competition_list.append({
 				"comp_slug":		f"{comp.slug}",
 				"comp_name":		f"{comp.comp_name}",
@@ -209,75 +198,68 @@ class Competition:
 	
 	# list of tasks in a competition
 	@staticmethod
-	def get_tasks_in_comp(cursor, comp_slug):
-		cursor.execute("""SELECT zadatak.slug 
-					FROM zadatak JOIN natjecanje USING(natjecanjeid) 
-					WHERE natjecanje.slug = %s""", (comp_slug,))
-		resp = cursor.fetchall()
+	def get_tasks_in_comp(comp_slug):
 		task_slug_list = []
-		for task in resp:
-			task_slug_list.append(task[0])
+		for task in db.query("""SELECT zadatak.slug 
+								FROM zadatak
+								JOIN natjecanje
+									USING(natjecanjeid) 
+								WHERE natjecanje.slug = %s""", comp_slug):
+			task_slug_list += [task[0]]
 		return task_slug_list
 
 	@staticmethod
-	def get_class_name_from_class_id(cursor, class_id):
-		cursor.execute("""SELECT nazivklasenatjecanja 
-					FROM klasanatjecanja 
-					WHERE idklasenatjecanja = %s""", (class_id,))
-		resp = cursor.fetchone()
-		if resp is not None:
-			return resp[0], None
+	def get_class_name_from_class_id(class_id):
+		resp = db.query("""SELECT nazivklasenatjecanja 
+							FROM klasanatjecanja 
+							WHERE idklasenatjecanja = %s""", class_id)
+		if resp:
+			return resp, None
 		return None, "Class name doesn't exist"
 
 	@staticmethod
-	def create_competition(cursor, data, trophy_file):
+	def create_competition(data, trophy_file):
 		tasks = json.loads(data["tasks"])
 		slug = slugify(data["comp_name"])
 
-		try:
-			cursor.execute(f"""SELECT trofejid
+		trophy_id = db.query(f"""SELECT trofejid
 								FROM trofej
-								WHERE slikatrofeja = %s;""", (trophy_file,))
-			trophy_id = cursor.fetchone()[0]
-		except Exception as e:
+								WHERE slikatrofeja = %s;""", trophy_file)
+
+		if db.error:
 			return None, "Trophy does not exist"
 
-		try:
-			cursor.execute("""INSERT INTO natjecanje(imenatjecanja, slug, tekstnatjecanja, vrijemekraj, 
-													vrijemepoc, slikatrofeja, brojzadataka, 
-													autorid, idklasenatjecanja, trofejid)
+		resp = db.query("""INSERT INTO natjecanje(imenatjecanja, slug, tekstnatjecanja, vrijemekraj, 
+												vrijemepoc, slikatrofeja, brojzadataka, 
+												autorid, idklasenatjecanja, trofejid)
 							VALUES(%s, %s ,%s, %s, %s, %s, %s,
-								(SELECT korisnikid FROM korisnik WHERE korisnickoime = %s),
-								%s, %s) 
-								RETURNING slug, natjecanjeid""",
-							(data["comp_name"], slug, data["comp_text"], data["end_time"], 
-							data["start_time"], trophy_file, len(tasks),
-							data["username"], 1, trophy_id,))
-			resp = cursor.fetchone()
-			comp_slug, comp_id = resp[0], resp[1]
+									(SELECT korisnikid FROM korisnik WHERE korisnickoime = %s),
+									%s, %s) 
+							RETURNING slug, natjecanjeid""",
+						data["comp_name"], slug, data["comp_text"], data["end_time"], 
+						data["start_time"], trophy_file, len(tasks),
+						data["username"], 1, trophy_id)
+
+		comp_slug, comp_id = resp[0], resp[1]
 			
-		except Exception as e:
+		if db.error:
 			return None, "Error while creating competition"
 		
 		# only public the tasks if the competition was successful
 		for task_slug in tasks:
-			cursor.execute("""UPDATE zadatak
-								SET natjecanjeid = %s, 
-									privatnost = false
-								WHERE zadatak.slug = %s;"""
-						,(comp_id, task_slug.strip()))
+			db.query("""UPDATE zadatak
+						SET natjecanjeid = %s, 
+							privatnost = false
+						WHERE zadatak.slug = %s;""",
+						comp_id, task_slug.strip())
 		return comp_slug, None
 	
 
 	@staticmethod
-	def check_if_comp_slug_exists(cursor, slug):
-		cursor.execute("""SELECT * FROM natjecanje
-						WHERE slug = %s""", (slug,))
-		resp = cursor.fetchone()
-		if resp is not None:
+	def check_if_comp_slug_exists(slug):
+		if db.query("""SELECT * FROM natjecanje WHERE slug = %s""", slug):
 			return True
 		return False
-
 
 class Trophy:
 	def __init__(self, trophy_id, trophy_name, trophy_img):
@@ -286,16 +268,15 @@ class Trophy:
 		self.trophy_img = trophy_img
 
 	@staticmethod
-	def user_trophies(cursor, username):
-		cursor.execute("""SELECT trofejid, imetrofeja, slikatrofeja 
-						FROM jeosvojio JOIN korisnik 
-						USING(korisnikid) NATURAL JOIN trofej
-						WHERE korisnickoime =  %s;""", (username,))
-		trophies = cursor.fetchall()
+	def user_trophies(username):
 		trophies_list = []
-		for trophy in trophies:
-			trophies_list.append(Trophy(*trophy))
-
+		for trophy in db.query("""SELECT trofejid, imetrofeja, slikatrofeja
+									FROM jeosvojio
+									JOIN korisnik 
+										USING(korisnikid)
+									NATURAL JOIN trofej
+									WHERE korisnickoime =  %s;""", username):
+			trophies_list += [Trophy(*trophy)]
 		return trophies_list
 
 	@staticmethod
@@ -316,34 +297,35 @@ class Task:
 		self.comp_id = comp_id
 
 	@staticmethod
-	def get_all_public_tasks(cursor):
+	def get_all_public_tasks():
 		public_tasks = []
-		cursor.execute("""SELECT * FROM zadatak 
-						WHERE privatnost = false 
-						LIMIT 50;""")
-		tasks = cursor.fetchall()
-
-		for task in tasks:
-			task_ins = Task(*task)
-			public_tasks.append(task_ins)
+		for task in db.query("""SELECT * FROM zadatak 
+								WHERE privatnost = false
+								LIMIT 50;"""):
+			public_tasks += [Task(*task)]
 
 		return public_tasks		
 
-	# used to create random tasks with an uniform spread of difficulty
 	@staticmethod
-	def get_random_tasks(cursor, n):
-		# if just 1, fully random
+	def get_random_tasks(n):
+		# resp = db.query("""SELECT zadatakid
+		# 					FROM zadatak
+		# 					WHERE zadatak.privatnost = false
+		# 					ORDER BY RANDOM () 
+		# 					LIMIT %s;""", n)
+		# random_tasks = [i[0] for i in resp]
+		# return random_tasks
+		
+		 # if just 1, fully random
 		if n == 1:
-			cursor.execute("""SELECT zadatakid FROM zadatak 
-						WHERE privatnost = false
-						ORDER BY RANDOM ()
-						LIMIT 1;""")
-			return cursor.fetchone()[0]
+			return db.query("""SELECT zadatakid FROM zadatak 
+								WHERE privatnost = false
+								ORDER BY RANDOM ()
+								LIMIT 1;""")
 
 		task_list = set()
-		cursor.execute("""SELECT COUNT(DISTINCT zadatakid) 
-						FROM zadatak WHERE privatnost = false;""")
-		count = cursor.fetchone()[0]
+		count = db.query("""SELECT COUNT(DISTINCT zadatakid) 
+							FROM zadatak WHERE privatnost = false;""")
 		if n  > 10 or n > count:
 			n = min(10, count)
 		
@@ -352,43 +334,36 @@ class Task:
 		harder_n = n - easier_n
 
 		# easier tasks
-		cursor.execute("""SELECT zadatakid FROM zadatak 
-						WHERE privatnost = false 
-						AND bodovi IN(1, 2, 3)
-						ORDER BY RANDOM ()
-						LIMIT %s;""", (easier_n,))
-		resp = cursor.fetchall()
-		for i in resp:
-			task_list.add(i[0])
+		for i in db.query("""SELECT zadatakid FROM zadatak 
+							WHERE privatnost = false 
+							AND bodovi IN(1, 2, 3)
+							ORDER BY RANDOM ()
+							LIMIT %s;""", easier_n):
+			task_list.add(i[0]) # <<==>>
 
 		# harder tasks
-		cursor.execute("""SELECT zadatakid FROM zadatak 
-						WHERE privatnost = false 
-						AND bodovi IN(3, 4, 5)
-						ORDER BY RANDOM ()
-						LIMIT %s""", (harder_n,))
-		resp = cursor.fetchall()
-		for i in resp:
-			task_list.add(i[0])
+		for i in db.query("""SELECT zadatakid FROM zadatak 
+							WHERE privatnost = false 
+							AND bodovi IN(3, 4, 5)
+							ORDER BY RANDOM ()
+							LIMIT %s""", harder_n):
+			task_list.add(i[0]) # <<==>>
 
 		# if there aren't enough tasks of some kind, add randoms
 		if len(task_list) < n:
-			cursor.execute("""SELECT zadatakid FROM zadatak 
-						WHERE privatnost = false
-						ORDER BY RANDOM ()
-						LIMIT %s""", (n - len(task_list),))
-		resp = cursor.fetchall()
-		for i in resp:
-			task_list.add(i[0])	
+			for i in db.query("""SELECT zadatakid FROM zadatak 
+								WHERE privatnost = false
+								ORDER BY RANDOM ()
+								LIMIT %s""", n - len(task_list)):
+				task_list.add(i[0]) # <<==>>
 
 		# in case we get a duplicate task, 
 		# keeps trying until it finds a new one 
 		while(len(task_list) < n):
-			cursor.execute("""SELECT zadatakid FROM zadatak 
-						WHERE privatnost = false
-						ORDER BY RANDOM ()
-						LIMIT 1""")
-			task = cursor.fetchone()[0]
+			task = db.query("""SELECT zadatakid FROM zadatak 
+								WHERE privatnost = false
+								ORDER BY RANDOM ()
+								LIMIT 1""")
 			if task is not None:
 				task_list.add(task)
 			else:
@@ -396,74 +371,61 @@ class Task:
 				return list(task_list)
 		return list(task_list)
 
+
 	@staticmethod
-	def get_task(cursor, slug):
-		cursor.execute("""SELECT * FROM zadatak 
-						WHERE slug = %s;""", (slug,))
-		resp = cursor.fetchone()
-		if resp is not None:
+	def get_task(slug):
+		resp = db.query("""SELECT *
+							FROM zadatak 
+							WHERE slug = %s""", slug)
+		if resp:
 			task = Task(*resp)
-			if task.private == True:
-				# we won't give info if the task is private or not
-				return None, "Task does not exist"
-			
+			if task.private:
+				return None, "Task does not exist" # we won't give info if the task is private	
 			return task, None
 
 		return None, "Task does not exist"
 
 	@staticmethod
-	def get_author_name(cursor, slug):
-		cursor.execute("""SELECT ime, prezime 
-					FROM zadatak JOIN korisnik 
-					ON(korisnikid = autorid)
-					WHERE zadatak.slug = %s;""", (slug,))	
-		resp = cursor.fetchone()
+	def get_author_name(slug):
+		return db.query("""SELECT ime, prezime
+							FROM zadatak
+							JOIN korisnik 
+								ON (korisnikid = autorid)
+							WHERE zadatak.slug = %s;""", slug)
 
+	@staticmethod
+	def get_author_name_from_comp_slug(comp_slug):
+		resp = db.query("""SELECT ime, prezime 
+							FROM korisnik
+							JOIN natjecanje 
+								ON (autorid = korisnikid)
+							WHERE slug =  %s;""", comp_slug)
 		return resp[0], resp[1]
 
 	@staticmethod
-	def get_author_name_from_comp_slug(cursor, comp_slug):
-		cursor.execute("""SELECT ime, prezime 
-					FROM korisnik JOIN natjecanje 
-					ON(autorid = korisnikid)
-					WHERE slug =  %s;""", (comp_slug,))	
-		resp = cursor.fetchone()
-
-		return resp[0], resp[1]
-
-	@staticmethod
-	def get_recent_tasks(cursor):
+	def get_recent_tasks():
 		task_list = []
-		cursor.execute("""SELECT * FROM zadatak 
-					WHERE privatnost = false
-					ORDER BY zadatakid DESC LIMIT 5;""")
-		resp = cursor.fetchall()
-		for task in resp:
-			task_ins = Task(*task)
-			task_list.append(task_ins)
-		
+		for task in db.query("""SELECT * FROM zadatak 
+								WHERE privatnost = false
+								ORDER BY zadatakid DESC LIMIT 5;"""):
+			task_list += [Task(*task)]
 		return task_list
 
 	@staticmethod
-	def get_private_tasks(cursor, username):
+	def get_private_tasks(username):
 		task_list = []
-		cursor.execute("""SELECT zadatak.* FROM zadatak 
-					JOIN korisnik ON(korisnikid = autorid) 
-					WHERE privatnost = true 
-					AND korisnickoime = %s""", (username,))
-		resp = cursor.fetchall()
-		for task in resp:
-			task_ins = Task(*task)
-			task_list.append(task_ins)
-		
+		for task in db.query("""SELECT zadatak.* FROM zadatak 
+								JOIN korisnik ON(korisnikid = autorid) 
+								WHERE privatnost = true 
+								AND korisnickoime = %s""", username):
+			task_list += [Task(*task)]
 		return task_list
 
 	# used at profile page to show the name
 	@staticmethod
-	def get_task_name(cursor, id):
-		cursor.execute("""SELECT imezadatka FROM zadatak
-						WHERE zadatakid = %s""", (id,))
-		return cursor.fetchone()[0]		
+	def get_task_name(id):
+		return db.query("""SELECT imezadatka FROM zadatak
+							WHERE zadatakid = %s""", id)
 
 class TestCase:
 	def __init__(self, input, output, task_id):
@@ -487,80 +449,73 @@ class VirtualCompetition:
 		self.user_id = user_id
 		self.comp_id = comp_id
 		self.tasks = tasks
+	
+	@staticmethod
+	def create_virt_competition(n, username):
+		tasks = Task.get_random_tasks(n)
+		resp = db.query("""INSERT INTO virtnatjecanje (vrijemekreacije, korisnikid, zadaci) 
+							VALUES (
+								NOW(),
+								(SELECT korisnikid FROM korisnik
+									WHERE korisnickoime = %s),
+								%s)
+								RETURNING virtnatjecanjeid;""", username, tasks)
+
+		resp = db.query("""SELECT * from virtnatjecanje 
+							WHERE virtnatjecanjeid = %s""", (resp,))
+		
+		return VirtualCompetition(*resp)
 
 	@staticmethod
-	def create_virt_competition(conn, cursor, n, username):
-		tasks = Task.get_random_tasks(cursor, n)
-		cursor.execute("""INSERT INTO virtnatjecanje (vrijemekreacije, korisnikid, zadaci) 
-						VALUES (
-							NOW(),
-							(SELECT korisnikid FROM korisnik
-								WHERE korisnickoime = %s),
-							%s)
-							RETURNING virtnatjecanjeid;""", (username, tasks))
-		resp = (cursor.fetchone())[0]
-		conn.commit()
-
-		cursor.execute("""SELECT * from virtnatjecanje 
-						WHERE virtnatjecanjeid = %s""", (resp,))
-
-		return VirtualCompetition( *(cursor.fetchone()))
-
-	@staticmethod
-	def get_virtual_competition(cursor, virtual_id):
+	def get_virtual_competition(virtual_id):
 		## could someone start someone elses virtal competition?
-		cursor.execute("""SELECT * FROM virtnatjecanje
-						WHERE virtnatjecanjeid = %s""", (virtual_id,))
-		resp = cursor.fetchone()
-		if resp is not None:
+		resp = db.query("""SELECT *
+							FROM virtnatjecanje
+							WHERE virtnatjecanjeid = %s""", virtual_id)
+		if resp:
 			return VirtualCompetition(*resp), None
 		return None, "Virtual competition does not exist"
 
 	@staticmethod
-	def get_virt_comps_from_user(cursor, username):
-		cursor.execute("""SELECT virtnatjecanjeid, natjecanjeid 
-					FROM virtnatjecanje 
-					JOIN korisnik USING(korisnikid) 
-					WHERE korisnickoime = %s""", (username,))
+	def get_virt_comps_from_user(username):
 		virt_list = []
-		resp = cursor.fetchall()
-		for virt in resp:
+		for virt in db.query("""SELECT virtnatjecanjeid, natjecanjeid 
+								FROM virtnatjecanje 
+								JOIN korisnik
+									USING(korisnikid) 
+								WHERE korisnickoime = %s""", username):
 			virt_list.append(virt)
 		return virt_list
 
 	@staticmethod
-	def get_comp_data_for_virtual_real_comp(cursor, comp_id):
+	def get_comp_data_for_virtual_real_comp(comp_id):
 		# returns slugs and the name of the competition
-		cursor.execute("""SELECT zadatak.slug, imenatjecanja
-						FROM natjecanje JOIN zadatak
-						USING(natjecanjeid)
-						WHERE natjecanjeid = %s;""", (comp_id,))
-		res = cursor.fetchall()
+		res = db.query("""SELECT zadatak.slug, imenatjecanja
+							FROM natjecanje
+							JOIN zadatak
+								USING(natjecanjeid)
+							WHERE natjecanjeid = %s;""", comp_id)
 		if len(res):
 			return tuple([i[0] for i in res]), res[0][1]
 		return tuple(), None
 	
 	@staticmethod
-	def get_slugs_from_ids_from_virt(cursor, virt_id):
-		cursor.execute("""SELECT slug
-						FROM zadatak	
-						WHERE zadatakid IN(SELECT unnest(zadaci)
-											FROM virtnatjecanje
-											WHERE virtnatjecanjeid = %s)"""
-											,(virt_id,))
-		resp = cursor.fetchall()
+	def get_slugs_from_ids_from_virt(virt_id):
 		task_slug_list = []
-		for task in resp:
+		for task in db.query("""SELECT slug
+								FROM zadatak
+								WHERE zadatakid IN(SELECT unnest(zadaci)
+													FROM virtnatjecanje
+													WHERE virtnatjecanjeid = %s)""",
+													virt_id):
 			task_slug_list.append(task[0])
 		return task_slug_list
 	
 	@staticmethod
-	def insert_real_into_virt(cursor, username, slug):
-		cursor.execute("""INSERT INTO virtnatjecanje
-					(vrijemekreacije, korisnikid, natjecanjeid)
-					VALUES(NOW(), 
-							(SELECT korisnikid FROM korisnik WHERE korisnickoime = %s), 
-							(SELECT natjecanjeid FROM natjecanje WHERE slug = %s)) RETURNING virtnatjecanjeid;"""
-					,(username, slug,))
-		return cursor.fetchone()[0]
-		
+	def insert_real_into_virt(username, slug):
+		return db.query("""INSERT INTO virtnatjecanje
+								(vrijemekreacije, korisnikid, natjecanjeid)
+							VALUES(NOW(), 
+									(SELECT korisnikid FROM korisnik WHERE korisnickoime = %s), 
+									(SELECT natjecanjeid FROM natjecanje WHERE slug = %s))
+							RETURNING virtnatjecanjeid;""", username, slug)
