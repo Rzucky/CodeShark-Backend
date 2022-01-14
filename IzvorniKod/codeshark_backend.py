@@ -153,15 +153,15 @@ def virtual_competitions():
 	virt_list = []
 	for virt in virt_list_data:
 		if virt[1] is None:
-			slugs = VirtualCompetition.get_slugs_from_ids_from_virt(virt[0])
-			virt_list.append({"tasks": slugs,
+			tasks = VirtualCompetition.get_slugs_from_ids_from_virt(virt[0])
+			virt_list.append({"tasks": tasks,
 							   "virt_id": virt[0],
 							   "name": "Virtual Competition"})
 		else:
-			slugs, name = VirtualCompetition.get_comp_data_for_virtual_real_comp(virt[1])
-			virt_list.append({"tasks": slugs,
-							  "virt_id": virt[0],
-							  "name": f"Virtual {name}"})
+			tasks, name = VirtualCompetition.get_comp_data_for_virtual_real_comp(virt[1])
+			virt_list.append({"tasks": tasks,
+							"virt_id": virt[0],
+							"name": f"Virtual {name}"})
 
 	return {"virtual_competitions": virt_list}, 200
 
@@ -202,6 +202,8 @@ def virtual_competition(virt_id=None, slug_real_comp=None):
 				if name is None:
 					return {"error": 'Virtual competition id is not valid'}, 400
 				name = f"Virtual {name}"
+			else:
+				virt.tasks = VirtualCompetition.get_slugs_from_ids_from_virt(virt_id)
 
 			return {
 				"tasks":			virt.tasks,
