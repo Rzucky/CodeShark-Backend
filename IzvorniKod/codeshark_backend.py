@@ -12,7 +12,7 @@ import uuid
 
 from slugify.slugify import slugify
 
-from classes import Rank, User, Competition, Trophy, VirtualCompetition, Task, TestCase, UploadedSolution
+from classes import Rank, User, Competition, Trophy, VirtualCompetition, Task, TestCase, UploadedSolution, Session
 import codeshark_config as cfg
 import send_mail
 
@@ -344,28 +344,35 @@ def execute_task():
 	if request.method == 'POST':
 		data = request.json
 
-		slug = data["slug"]
-		user = data["username"]
-		lang = data["lang"]
-		code = data["code"] # Length ?
+		try:
+			slug = data["slug"]
+			user = data["username"]
+			lang = data["lang"].lower()
+			code = data["code"] # Length ?
+		except:
+			return {"error": "invalid data sent"}, 400
 
 		submit_time = datetime.now()
 
 		solutions_dir = cfg.get_config("solutions_dir")
 		solution_file = f"{solutions_dir}/{user}_{time.time()}"
-		with open(solution_file, "w") as fp:
-			fp.write(code)
 
 		user_account_name = cfg.get_config("user_account_name")
 		compile_timeout = cfg.get_config("compile_timeout") # seconds
 
 		# Prepare command for each language
-		if lang.lower() in ["py3"]:
-			command = f"sudo -u {user_account_name} {cfg.get_config('python_interpreter')} {solution_file}"
+		if lang in ["py3"]:
+			with open(f"{solution_file}.py3", "w") as fp:
+				fp.write(code)
 
-		elif lang.lower() in ["c++"]:
+			command = f"sudo -u {user_account_name} {cfg.get_config('python_interpreter')} {solution_file}.py3"
+
+		elif lang in ["c++"]:
+			with open(f"{solution_file}.cpp", "w") as fp:
+				fp.write(code)
+
 			# Compile
-			command = f"sudo -u {user_account_name} g++ {solution_file} -o {solution_file}.out -std={cfg.get_config('c++_compiler_version')}"
+			command = f"sudo -u {user_account_name} g++ {solution_file}.cpp -o {solution_file}.out -std={cfg.get_config('c++_compiler_version')}"
 
 			proc = None
 			try:
@@ -391,9 +398,12 @@ def execute_task():
 			# Set actual execution command
 			command = f"sudo -u {user_account_name} {solution_file}.out"
 
-		elif lang.lower() in ["c"]:
+		elif lang in ["c"]:
+			with open(f"{solution_file}.c", "w") as fp:
+				fp.write(code)
+
 			# Compile
-			command = f"sudo -u {user_account_name} gcc {solution_file} -o {solution_file}.out -std={cfg.get_config('c_compiler_version')}"
+			command = f"sudo -u {user_account_name} gcc {solution_file}.c -o {solution_file}.out -std={cfg.get_config('c_compiler_version')}"
 
 			proc = None
 			try:
@@ -429,10 +439,8 @@ def execute_task():
 		if not task:
 			return {
 					"error": err,
-					"result": f"1/0",
-					"percentage": 0,
-					"tests": {}
 				}, 403
+
 		tests = db.query("""SELECT testprimjer.*
 							FROM testprimjer
 							JOIN zadatak
@@ -670,6 +678,7 @@ def edit_profile():
 
 @app.route('/login', methods=['POST'])
 def login():
+	session_id = request.headers.get('session')
 	data = request.json
 
 	user = User.get_user(data["username"])
@@ -686,8 +695,11 @@ def login():
 	#check if user is validated
 	if not user.check_activated():
 		return {"error": "User is not activated"}, 401
+	
+	session_id = Session.obtain(session_id, user.username)
 
 	return {"status": "Successfully logged in",
+			"session_id": session_id,
 			"rank": user.rank
 			}, 200
 

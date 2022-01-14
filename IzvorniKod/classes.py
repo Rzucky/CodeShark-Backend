@@ -3,6 +3,8 @@ import json
 from slugify import slugify
 from enum import IntEnum
 import time
+import uuid
+from datetime import datetime
 
 from database import PGDB
 db = PGDB()
@@ -167,16 +169,47 @@ class Session:
 
 	@staticmethod
 	def username_from_sessionid(session_id):
-		for resp in check(db.query("""SELECT korisnikid, pocetaksesije
-						FROM sesija 
-						WHERE sesijaid = %s""", session_id)):
+		for resp in check(db.query("""SELECT korisnickoime, pocetaksesije
+						FROM sesija JOIN korisnik USING(korisnikid)
+						WHERE sesijaid =  %s""", session_id)):
 			return resp[0], resp[1]
+		return None, None
 
 	@staticmethod
-	def insert_session_id(session_id, username):
-		return db.query("""INSERT INTO sesija 
-					VALUES(%s, NOW(), %s) RETURNING sesijaid"""
-					, session_id, username)
+	def create_session_id(username):
+		session_id = uuid.uuid4().hex
+		db.query("""INSERT INTO sesija 
+					VALUES(%s, NOW(), %s)""",
+					session_id, username)
+		return session_id
+
+	@staticmethod
+	def check_expired(session_id):
+		_, tm = Session.username_from_sessionid(session_id)
+		current_time = datetime.now()
+		if tm is None or not(current_time - datetime.timedelta(days=7) <= tm <= current_time):
+			# Expired
+			return True
+		return False
+
+	@staticmethod
+	def obtain(session_id, username):
+		if Session.check_expired(session_id):
+			return Session.create_session_id(username)
+		return session_id
+
+	@staticmethod
+	def verify(session_id):
+		username, _ = Session.username_from_sessionid(session_id)
+		if username is not None:
+			return Session.obtain(session_id, username), username
+		return None, "Invalid token"
+
+		# username, time = Session.username_from_sessionid(session_id)
+		# current_time = datetime.now()
+		# if time is None or not(current_time - datetime.timedelta(days=7) <= time <= current_time):
+		# 	return user.username, Session.create_session_id(user) if user is not None else True
+		# return username, session_id if user is not None else False
 
 
 class Competition:
