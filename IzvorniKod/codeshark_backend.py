@@ -334,7 +334,7 @@ def create_task():
 																	WHERE korisnickoime = %s))
 								RETURNING zadatakid;""",
 								data["task_name"], data["difficulty"], data["max_exe_time"], data["task_text"], data["private"], slugify(data["task_name"]), username,
-								False)
+								autocommit=False)
 
 		if db.error:
 			return {"error": "Task already exists"}, 400
@@ -344,7 +344,7 @@ def create_task():
 							(ulaz, izlaz, zadatakid)
 							VALUES (%s, %s, %s);""",
 						tc["input"], tc["output"], taskid,
-						False)
+						autocommit=False)
 			if db.error:
 				return {"error": "Test case already exists"}, 400
 
@@ -352,7 +352,7 @@ def create_task():
 
 	except Exception as e:
 		db.rollback()
-		return {"error": db.errormsg}, 500
+		return {"error": str(e)}, 500
 
 	return {"status": "Created task"}, 200
 
