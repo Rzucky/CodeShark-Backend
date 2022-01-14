@@ -12,8 +12,10 @@ class Rank(IntEnum):
 	LEADER = 2
 	ADMIN = 3
 
+#db.add_middle(lambda lst: lst if type(lst) in [list, tuple, set] else [lst])
 def check(lst):
 	return lst if type(lst) in [list, tuple, set] else [lst]
+
 class User:
 	def __init__(self, username, password, pfp_url, name, last_name, email, title='amater', rank=Rank.COMPETITOR):
 		self.username = username
@@ -229,7 +231,7 @@ class Competition:
 		return task_slug_list
 
 	@staticmethod
-	def get_class_name_from_class_id(class_id):
+	def get_class_name_from_class_id(class_id): ##
 		resp = db.query("""SELECT nazivklasenatjecanja 
 							FROM klasanatjecanja 
 							WHERE idklasenatjecanja = %s""", class_id)
@@ -440,7 +442,6 @@ class Task:
 	
 	@staticmethod
 	def get_other_task_solutions(slug):
-		#best_solutions = []
 		return check(db.query("""SELECT * 
 					FROM(SELECT DISTINCT ON (korisnik.korisnickoime) 
 								korisnik.korisnickoime, prolaznost,
@@ -450,9 +451,6 @@ class Task:
 								ORDER BY korisnickoime, prolaznost DESC, 
 										prosjvrijemeizvrs ASC) AS bestruns
 						ORDER BY prolaznost DESC, prosjvrijemeizvrs ASC;""", slug))
-			#best_solutions.append(i)
-		 #best_solutions
-
 
 class TestCase:
 	def __init__(self, input, output, task_id):
@@ -477,6 +475,14 @@ class UploadedSolution:
 					WHERE slug = %s AND korisnickoime = %s
 					ORDER BY prolaznost DESC LIMIT 1""", slug, username)
 
+	@staticmethod
+	def get_latest_solution(slug, username):
+		return db.query("""SELECT predanorjesenje FROM uploadrjesenja 
+					JOIN korisnik USING(korisnikid) 
+					JOIN zadatak USING(zadatakid) 
+					WHERE slug = %s AND korisnickoime = %s
+					ORDER BY vrijemepredaje 
+					DESC LIMIT 1""", slug, username)
 
 class VirtualCompetition:
 	def __init__(self, virt_comp_id, created_at, user_id, comp_id, tasks):

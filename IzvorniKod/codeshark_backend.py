@@ -227,6 +227,7 @@ def task(slug):
 
 		uploaded_solutions = []
 		user_score = UploadedSolution.check_solution_score(slug, username)
+		last_user_solution = UploadedSolution.get_latest_solution(slug, username)
 		uploaded_solutions_tuples = Task.get_other_task_solutions(slug)
 		if user_score == 1.0:
 			for uploaded_solution in uploaded_solutions_tuples:
@@ -261,6 +262,7 @@ def task(slug):
 			"task_text":			f"{zad.task_text}",
 			"slug":					f"{zad.slug}",
 			"name_last_name":		f"{author_name} {author_lastname}",
+			"last_user_solution":	last_user_solution,
 			"uploaded_solutions":	uploaded_solutions
 			}, 200
 				
@@ -618,7 +620,7 @@ def edit_profile():
 	imgreceived = False
 	file_name = ""
 	file_ext = ""
-	old_fname = os.path.join(app.config['UPLOAD_FOLDER'], old_pfp_url)
+	old_fname = os.path.join(app.config['IMG_UPLOAD_FOLDER'], old_pfp_url)
 	
 	try:
 		# Accept image from form
