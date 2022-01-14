@@ -475,6 +475,9 @@ def execute_task():
 	results = {}
 	total_time = 0
 
+	if total_tests == 0:
+		return {"error": "No test cases"}, 400
+
 	for i, test in enumerate(tests):
 		test = TestCase(*test)
 		proc = subp.Popen(command, stdin=subp.PIPE, stdout=subp.PIPE)
