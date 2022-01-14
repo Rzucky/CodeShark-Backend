@@ -212,7 +212,9 @@ def virtual_competition(virt_id=None, slug_real_comp=None):
 
 @app.route('/avatar/<username>', methods=['GET'])
 def avatar(username):
-	profile_pic_url = db.query("""SELECT slikaprofila FROM korisnik WHERE korisnickoime = %s;""", username)
+	profile_pic_url = db.query("""SELECT slikaprofila 
+							FROM korisnik 
+							WHERE korisnickoime = %s;""", username)
 	if profile_pic_url is not None:
 		return {"pfp_url": f"{profile_pic_url}"}, 200
 
@@ -223,7 +225,7 @@ def task(slug):
 	if request.method == 'GET':
 		username = request.headers.get('session')
 		zad, error = Task.get_task(slug)
-		if not zad:
+		if error:
 			return {"error": error}, 403
 
 		uploaded_solutions = []
@@ -233,7 +235,7 @@ def task(slug):
 		if user_score == 1.0:
 			for uploaded_solution in uploaded_solutions_tuples:
 				if uploaded_solution[1] == 1.0:
-					# also get code from peopl with 100%
+					# also get code from people with 100%
 					uploaded_solutions.append({
 						"username": uploaded_solution[0],
 						"score": uploaded_solution[1],
@@ -424,8 +426,10 @@ def execute_task():
 		task, err = Task.get_task(slug)
 		if not task:
 			return {
+					"error": err,
 					"result": f"1/0",
-					"tests": {},
+					"percentage": 0,
+					"tests": {}
 				}, 403
 		tests = db.query("""SELECT testprimjer.*
 							FROM testprimjer
@@ -573,10 +577,10 @@ def edit_profile():
 								FROM korisnik
 								WHERE korisnickoime = %s;""", foruser)
 
-	if rank is None:
+	if not rank:
 		return {"error": "User requesting edit does not exist"}, 400
 
-	if old_pfp_url is None:
+	if not old_pfp_url:
 		return {"error": "User being edited does not exist"}, 400
 
 	if foruser != fromuser and rank != Rank.ADMIN:
@@ -673,7 +677,7 @@ def login():
 								WHERE korisnickoime = %s
 									AND lozinka = %s""", user.username,  User.hash_password(data["password"]))
 
-	if db_response is None:
+	if not db_response:
 		return {"error": "Wrong password"}, 400
 
 	#check if user is validated
@@ -761,6 +765,8 @@ def register():
 	# Sending verification mail
 	if not debug_mail:
 		send_mail.send_verification_mail(user.name, user.last_name, user.email, token)
+		if user.rank == 2:
+			send_mail.send_upgrade_mail(user)
 
 	if file_ext is None:
 		return {"data": "successfully registered user but no image"}, 200
