@@ -2,6 +2,7 @@ import psycopg2
 import codeshark_config as cfg
 import atexit
 from datetime import datetime
+from collections import OrderedDict
 
 class DatabaseInitError(Exception):
 	def __init__(self):
@@ -16,6 +17,7 @@ class PGDB:
 	__logging = None
 	__auto_shorten = None
 	__silent = None
+	__middle = None
 	error = None
 	errormsg = None
 
@@ -33,6 +35,7 @@ class PGDB:
 		__class__.__logging = logging
 		__class__.__auto_shorten = auto_shorten
 		__class__.__silent = silent
+		__class__.__middle = OrderedDict()
 
 		cfg.load_config()
 
@@ -61,13 +64,9 @@ class PGDB:
 			pass
 
 	@classmethod
-	def debug(cls):
-		print("conn >", cls.__conn)
-
-	@classmethod
 	def __log(cls, msg):
 		if not cls.__logging: return
-		# print(f">> {msg}")
+		print(f"[{datetime.now()}] {msg}")
 		# cls.__logfile.write(msg)
 
 	@classmethod
@@ -113,6 +112,15 @@ class PGDB:
 			return cls.__silent
 		else:
 			cls.__silent = silent
+
+	@classmethod
+	def add_middle(cls, func):
+		cls.__middle[func] = func
+
+	@classmethod
+	def del_middle(cls, func):
+		if func in cls.__middle:
+			del cls.__middle[func]
 
 	@classmethod
 	def commit(cls):
@@ -181,16 +189,24 @@ class PGDB:
 					cls.__log(f"Rollback error: {err2};")
 
 				cls.__seterror(err)
-				cls.__log(f"Error while executing: {query}\nWith params: {params}\n{err}")
+				cls.__log(f"Error while executing: {query} ;; With params: {params} ;; Err: {err}")
 				
 				if cls.__error_handler:
 					cls.__error_handler(err)
 
 		except Exception as err:
 			cls.__seterror(err)
-			cls.__log(f"Error creating cursor while executing: {query}\nWith params: {params}; ||{err}||")
+			cls.__log(f"Error creating cursor while executing: {query} ;; With params: {params} ;; Err: {err}")
 
 		finally:
 			del cur
 
-		return [] if rows is None else rows ##
+		rows = [] if rows is None else rows
+
+		for func in cls.__middle:
+			try:
+				rows = func(rows)
+			except Exception as err:
+				cls.__log(f"Error executing middle function {func.__name__} ;; Err: {err} ;; Data: {rows}")
+
+		return rows
