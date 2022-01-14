@@ -4,19 +4,13 @@ from selenium.webdriver.common.by import By
 import time
 from selenium.common.exceptions import NoSuchElementException
 import warnings
-import psycopg2.extensions
-
-from codeshark_backend import connect_to_db
-from classes import User, Competition, Task
 
 warnings.filterwarnings("ignore", category=DeprecationWarning) 
 chrome_options = webdriver.ChromeOptions()
 chrome_options.add_argument("--incognito")
 chrome_options.add_argument("--log-level=3")
-driver = webdriver.Chrome(executable_path=r"path_to_chromedriver", options=chrome_options)
+driver = webdriver.Chrome(executable_path=r"path_to_chromedriver.exe", options=chrome_options)
 base_url = 'https://domefan.club'
-
-####### system tests
 
 @pytest.mark.parametrize('url', [base_url])
 def test_home_page(url):
@@ -91,6 +85,7 @@ def test_login_page(username, password, expected_result):
 	driver.find_element(By.ID, "login-button").click()
 	time.sleep(1)
 	text = (driver.find_element(By.XPATH,'/html/body/div[2]/div/h2/p')).text
+	time.sleep(1)
 
 	# sometimes the expected result is to fail
 	if text == 'Successfully signed in!':
@@ -139,38 +134,3 @@ def test_profile_page_logged_in(url):
 		assert False
 
 	driver.get(f'{base_url}/logout')
-
-
-####### unit tests
-
-@pytest.mark.parametrize('expected_type', [psycopg2.extensions.connection])
-def test_db_connection(expected_type):
-	conn, _ = connect_to_db()
-	assert isinstance(conn, expected_type)
-	conn.close()
-
-@pytest.mark.parametrize('username, email, expected_result', 
-	[('obicansmrtnik1', 'obicansmrtnik@ffzg.hr', True), 
-	('incorrect_username', 'incorrect_username@fer.hr', False)])
-def test_check_if_user_exists(username, email, expected_result):
-	conn, cursor = connect_to_db()
-	existence = User.check_if_user_exists(cursor, username, email)[0]
-	assert existence == expected_result
-	conn.close()
-
-@pytest.mark.parametrize('class_id, expected_result', [(1, 'amater'), (7, None)])
-def test_get_class_name(class_id, expected_result):
-	conn, cursor = connect_to_db()
-	name = Competition.get_class_name_from_class_id(cursor, class_id)[0]
-	# This shouldn't be done when comparing with None (should be "is None") 
-	# but to simplify this example
-	assert name == expected_result
-	conn.close()
-
-@pytest.mark.parametrize('slug, expected_result_type', [('area-of-a-sphere', Task), ('wrong-slug', type(None))])
-def test_get_task(slug, expected_result_type):
-	conn, cursor = connect_to_db()
-	task, _ = Task.get_task(cursor, slug)
-	# we can't use isinstance in this case as it can't compare when task is None 
-	assert type(task) == expected_result_type
-	conn.close()
