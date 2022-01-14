@@ -257,6 +257,9 @@ class Competition:
 
 	@staticmethod
 	def create_competition(data, trophy_id):
+		if "tasks" not in data or data["tasks"] == "":
+			return None, "No tasks provided"
+
 		tasks = json.loads(data["tasks"])
 		slug = slugify(data["comp_name"])
 
