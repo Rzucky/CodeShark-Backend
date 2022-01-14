@@ -157,28 +157,21 @@ class PGDB:
 				rows = cur.fetchall()
 
 				if cls.__auto_shorten:
-					print(f">>>>>> BEFORE SHORTENING: {rows}")
-					if type(rows) in [list, tuple] and len(rows) == 1:
+					#print(f">>>>>> BEFORE SHORTENING: {rows}")
+					if type(rows) in [list, tuple, set] and len(rows) == 1:
 						elem = rows[0]
 
-						#print(f"{elem}")
-
-						while type(elem) in [list, tuple]:
+						while type(elem) in [list, tuple, set]:
 							if len(elem) == 1:
-								#print(f">> 1")
 								elem = elem[0]
 							else:
-								#print(f">> break")
 								break
 
-						#print(f">> ELEM AFTER: {elem}")
-						if type(elem) not in [list, tuple] or len(elem) == 0: # []  |  1  |  (1232, 'sadd', 765)
-							#print(f"FINAL")
+						if type(elem) not in [list, tuple, set] or len(elem) == 0: # []  |  1  |  (1232, 'sadd', 765)
 							rows = elem
+					#print(f">>>>>> AFTER SHORTENING: {rows}")
 
-					print(f">>>>>> AFTER SHORTENING: {rows}")
-
-				if type(rows) in [list, tuple] and len(rows) == 0: ## ?
+				if type(rows) in [list, tuple, set] and len(rows) == 0: ## ?
 					rows = None
 
 			except Exception as err:

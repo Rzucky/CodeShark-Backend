@@ -12,6 +12,8 @@ class Rank(IntEnum):
 	LEADER = 2
 	ADMIN = 3
 
+def check(lst):
+	return lst if type(lst) in [list, tuple, set] else [lst]
 class User:
 	def __init__(self, username, password, pfp_url, name, last_name, email, title='amater', rank=Rank.COMPETITOR):
 		self.username = username
@@ -79,6 +81,17 @@ class User:
 			lst += [UploadedSolution(*comp)]
 		return lst
 	
+	def get_created_tasks(self):
+		lst = []
+		for task in db.query("""SELECT zadatak.* FROM zadatak 
+								JOIN korisnik ON(autorid = korisnikid)
+								WHERE privatnost = false 
+								AND korisnickoime = %s 
+								LIMIT 10;""", self.username):
+
+			lst += [Task(*task)]
+		return lst
+
 	@classmethod
 	def generate_pfp_filename(cls, uname):
 		hsh = cls.hash_pfp_filename(f"{uname}+{time.time()}") # (call static)
@@ -138,10 +151,9 @@ class User:
 
 	@staticmethod
 	def get_user(username):
-		resp = db.query("""SELECT *
+		for resp in db.query("""SELECT *
 							FROM korisnik 
-							WHERE korisnickoime = %s;""", username)
-		if resp:
+							WHERE korisnickoime = %s;""", username):
 			resp = resp[1:-3]
 			return User(*resp)
 		return None
@@ -161,11 +173,19 @@ class Competition:
 		self.slug = slug
 
 	def get_competition(comp_slug):
-		resp = db.query("""SELECT * FROM natjecanje 
-							WHERE slug = %s""", comp_slug)
-		if resp:
+		for resp in check(db.query("""SELECT * FROM natjecanje 
+							WHERE slug = %s""", comp_slug)):
 			return Competition(*resp), None
 		return None, "Competition does not exist"
+
+	@staticmethod
+	def get_competitions():
+		comp_list = []
+		for comp in db.query("""SELECT * FROM natjecanje
+							ORDER BY vrijemepoc DESC"""):
+			comp_list += [Competition(*comp)]
+		
+		return Competition.format_competitions(comp_list)
 
 	@staticmethod
 	def get_n_closest_competitions(n):
@@ -176,9 +196,9 @@ class Competition:
 					LIMIT %s;""", n):
 			comp_list += [Competition(*comp)]
 		
-		# format to the form to show on front page and comp page
 		return Competition.format_competitions(comp_list)
 
+	# format to the form to show on front page and comp page
 	@staticmethod
 	def format_competitions(comp_list_instances):
 		competition_list = []
@@ -200,11 +220,11 @@ class Competition:
 	@staticmethod
 	def get_tasks_in_comp(comp_slug):
 		task_slug_list = []
-		for task in db.query("""SELECT zadatak.slug 
+		for task in check(db.query("""SELECT zadatak.slug 
 								FROM zadatak
 								JOIN natjecanje
 									USING(natjecanjeid) 
-								WHERE natjecanje.slug = %s""", comp_slug):
+								WHERE natjecanje.slug = %s""", comp_slug)):
 			task_slug_list += [task[0]]
 		return task_slug_list
 
@@ -218,18 +238,18 @@ class Competition:
 		return None, "Class name doesn't exist"
 
 	@staticmethod
-	def create_competition(data, trophy_file):
+	def create_competition(data, trophy_id):
 		tasks = json.loads(data["tasks"])
 		slug = slugify(data["comp_name"])
 
-		trophy_id = db.query(f"""SELECT trofejid
+		trophy_file = db.query(f"""SELECT slikatrofeja
 								FROM trofej
-								WHERE slikatrofeja = %s;""", trophy_file)
+								WHERE trofejid = %s;""", trophy_id)
 
 		if db.error:
 			return None, "Trophy does not exist"
 
-		resp = db.query("""INSERT INTO natjecanje(imenatjecanja, slug, tekstnatjecanja, vrijemekraj, 
+		for resp in check(db.query("""INSERT INTO natjecanje(imenatjecanja, slug, tekstnatjecanja, vrijemekraj, 
 												vrijemepoc, slikatrofeja, brojzadataka, 
 												autorid, idklasenatjecanja, trofejid)
 							VALUES(%s, %s ,%s, %s, %s, %s, %s,
@@ -238,12 +258,11 @@ class Competition:
 							RETURNING slug, natjecanjeid""",
 						data["comp_name"], slug, data["comp_text"], data["end_time"], 
 						data["start_time"], trophy_file, len(tasks),
-						data["username"], 1, trophy_id)
-
-		comp_slug, comp_id = resp[0], resp[1]
+						data["username"], 1, trophy_id)):
+			comp_slug, comp_id = resp[0], resp[1]
 			
 		if db.error:
-			return None, "Error while creating competition"
+			return None, db.errormsg #"Error while creating competition"
 		
 		# only public the tasks if the competition was successful
 		for task_slug in tasks:
@@ -308,15 +327,7 @@ class Task:
 
 	@staticmethod
 	def get_random_tasks(n):
-		# resp = db.query("""SELECT zadatakid
-		# 					FROM zadatak
-		# 					WHERE zadatak.privatnost = false
-		# 					ORDER BY RANDOM () 
-		# 					LIMIT %s;""", n)
-		# random_tasks = [i[0] for i in resp]
-		# return random_tasks
-		
-		 # if just 1, fully random
+		# if just 1, fully random
 		if n == 1:
 			return db.query("""SELECT zadatakid FROM zadatak 
 								WHERE privatnost = false
@@ -334,28 +345,28 @@ class Task:
 		harder_n = n - easier_n
 
 		# easier tasks
-		for i in db.query("""SELECT zadatakid FROM zadatak 
+		for i in check(db.query("""SELECT zadatakid FROM zadatak 
 							WHERE privatnost = false 
 							AND bodovi IN(1, 2, 3)
 							ORDER BY RANDOM ()
-							LIMIT %s;""", easier_n):
-			task_list.add(i[0]) # <<==>>
+							LIMIT %s;""", easier_n)):
+			task_list.add(i) # <<==>>
 
 		# harder tasks
-		for i in db.query("""SELECT zadatakid FROM zadatak 
+		for i in check(db.query("""SELECT zadatakid FROM zadatak 
 							WHERE privatnost = false 
 							AND bodovi IN(3, 4, 5)
 							ORDER BY RANDOM ()
-							LIMIT %s""", harder_n):
-			task_list.add(i[0]) # <<==>>
+							LIMIT %s""", harder_n)):
+			task_list.add(i) # <<==>>
 
 		# if there aren't enough tasks of some kind, add randoms
 		if len(task_list) < n:
-			for i in db.query("""SELECT zadatakid FROM zadatak 
+			for i in check(db.query("""SELECT zadatakid FROM zadatak 
 								WHERE privatnost = false
 								ORDER BY RANDOM ()
-								LIMIT %s""", n - len(task_list)):
-				task_list.add(i[0]) # <<==>>
+								LIMIT %s""", n - len(task_list))):
+				task_list.add(i) # <<==>>
 
 		# in case we get a duplicate task, 
 		# keeps trying until it finds a new one 
@@ -374,10 +385,9 @@ class Task:
 
 	@staticmethod
 	def get_task(slug):
-		resp = db.query("""SELECT *
+		for resp in db.query("""SELECT *
 							FROM zadatak 
-							WHERE slug = %s""", slug)
-		if resp:
+							WHERE slug = %s""", slug):
 			task = Task(*resp)
 			if task.private:
 				return None, "Task does not exist" # we won't give info if the task is private	
@@ -387,20 +397,21 @@ class Task:
 
 	@staticmethod
 	def get_author_name(slug):
-		return db.query("""SELECT ime, prezime
+		for resp in db.query("""SELECT ime, prezime
 							FROM zadatak
 							JOIN korisnik 
 								ON (korisnikid = autorid)
-							WHERE zadatak.slug = %s;""", slug)
+							WHERE zadatak.slug = %s;""", slug):
+			return resp
 
 	@staticmethod
 	def get_author_name_from_comp_slug(comp_slug):
-		resp = db.query("""SELECT ime, prezime 
+		for resp in db.query("""SELECT ime, prezime 
 							FROM korisnik
 							JOIN natjecanje 
 								ON (autorid = korisnikid)
-							WHERE slug =  %s;""", comp_slug)
-		return resp[0], resp[1]
+							WHERE slug =  %s;""", comp_slug):
+			return resp[0], resp[1]
 
 	@staticmethod
 	def get_recent_tasks():
@@ -461,18 +472,15 @@ class VirtualCompetition:
 								%s)
 								RETURNING virtnatjecanjeid;""", username, tasks)
 
-		resp = db.query("""SELECT * from virtnatjecanje 
-							WHERE virtnatjecanjeid = %s""", (resp,))
-		
-		return VirtualCompetition(*resp)
+		for resp in check(db.query("""SELECT * from virtnatjecanje 
+							WHERE virtnatjecanjeid = %s""", (resp,))):
+			return VirtualCompetition(*resp)
 
 	@staticmethod
 	def get_virtual_competition(virtual_id):
 		## could someone start someone elses virtal competition?
-		resp = db.query("""SELECT *
-							FROM virtnatjecanje
-							WHERE virtnatjecanjeid = %s""", virtual_id)
-		if resp:
+		for resp in check(db.query("""SELECT * FROM virtnatjecanje
+							WHERE virtnatjecanjeid = %s""", virtual_id)):
 			return VirtualCompetition(*resp), None
 		return None, "Virtual competition does not exist"
 
@@ -502,12 +510,12 @@ class VirtualCompetition:
 	@staticmethod
 	def get_slugs_from_ids_from_virt(virt_id):
 		task_slug_list = []
-		for task in db.query("""SELECT slug
+		for task in check(db.query("""SELECT slug
 								FROM zadatak
 								WHERE zadatakid IN(SELECT unnest(zadaci)
 													FROM virtnatjecanje
 													WHERE virtnatjecanjeid = %s)""",
-													virt_id):
+													virt_id)):
 			task_slug_list.append(task[0])
 		return task_slug_list
 	

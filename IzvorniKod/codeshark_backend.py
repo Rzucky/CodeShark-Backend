@@ -59,7 +59,7 @@ def home():
 
 @app.route('/competitions', methods=['GET'])
 def competitions():
-	competition_list = Competition.get_n_closest_competitions(50)
+	competition_list = Competition.get_competitions()
 	return {"competitions": competition_list}, 200
 
 @app.route('/create_competition', methods=['GET','POST'])
@@ -96,16 +96,20 @@ def create_competition():
 
 		if img_uploaded:
 			# Update db
-			db.query(f"""INSERT INTO trofej
+			trophy_id = db.query(f"""INSERT INTO trofej
 						(imetrofeja, slikatrofeja)
-						VALUES (%s, %s);""", data["trophy_name"], trophy_file)
+						VALUES (%s, %s) RETURNING trofejid;""", data["trophy_name"], trophy_file)
 
 			if db.error == psycopg2.errors.UniqueViolation:
 				os.remove(os.path.join(cfg.get_config("trophy_upload_dir"), trophy_file))
 				return {"error": "Trophy with the same name already exists"}, 400
-
+		else:
+			trophy_id = db.query(f"""SELECT trofejid
+								FROM trofej
+								WHERE slikatrofeja = %s
+								ORDER BY trofejid ASC LIMIT 1;""", trophy_file)
 		data["username"] = username
-		comp_slug, error = Competition.create_competition(data, trophy_file)
+		comp_slug, error = Competition.create_competition(data, trophy_id)
 		if comp_slug is not None:
 			return {"comp_slug": comp_slug}, 200
 		return {"error": error}, 400
@@ -150,11 +154,13 @@ def virtual_competitions():
 		if virt[1] is None:
 			slugs = VirtualCompetition.get_slugs_from_ids_from_virt(virt[0])
 			virt_list.append({"tasks": slugs,
-								"name": "Virtual Competition"})
+							   "virt_id": virt[0],
+							   "name": "Virtual Competition"})
 		else:
 			slugs, name = VirtualCompetition.get_comp_data_for_virtual_real_comp(virt[1])
 			virt_list.append({"tasks": slugs,
-								"name": f"Virtual {name}"})
+							  "virt_id": virt[0],
+							  "name": f"Virtual {name}"})
 
 	return {"virtual_competitions": virt_list}, 200
 
@@ -217,6 +223,9 @@ def task(slug):
 		zad, error = Task.get_task(slug)
 		if not zad:
 			return {"error": error}, 403
+		
+		## user koji req 100% onda vidi kod 100% od ostalih usera i imena njihova
+		## ostali useri samo prolaznost
 
 		author_name, author_lastname = Task.get_author_name(slug)
 		
@@ -468,6 +477,7 @@ def profile(username):
 
 	submitted_solutions = []
 	created_competitions = []
+	created_tasks = []
 	if user.rank == Rank.COMPETITOR:		# Natjecatelj
 		submitted_solutions_ins	= user.get_submitted_solutions()
 		for task in submitted_solutions_ins:
@@ -494,6 +504,13 @@ def profile(username):
 				"task_count":		f"{comp.task_count}",
 				"comp_class_name":	f"{comp_class_name}"
 			})
+		created_tasks_ins = user.get_created_tasks()
+		for task in created_tasks_ins:
+			created_tasks.append({
+				"name":			f"{task.task_name}",
+				"difficulty":	f"{task.difficulty}",
+				"slug":			f"{task.slug}"
+			})
 
 	return {"name": user.name,
 			"last_name": user.last_name,
@@ -506,7 +523,8 @@ def profile(username):
 			"solved": user.solved,
 			"correctly_solved": correctly_solved,
 			"submitted_solutions": submitted_solutions,
-			"created_competitions": created_competitions
+			"created_competitions": created_competitions,
+			"created_tasks": created_tasks
 			}, 200
 
 @app.route('/edit_profile', methods=['POST'])
