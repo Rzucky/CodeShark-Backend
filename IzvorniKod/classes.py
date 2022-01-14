@@ -525,25 +525,25 @@ class VirtualCompetition:
 	@staticmethod
 	def get_comp_data_for_virtual_real_comp(comp_id):
 		# returns slugs and the name of the competition
-		res = db.query("""SELECT zadatak.slug, imenatjecanja
+		res = db.query("""SELECT zadatak.slug, zadatak.imezadatka, imenatjecanja
 							FROM natjecanje
 							JOIN zadatak
 								USING(natjecanjeid)
 							WHERE natjecanjeid = %s;""", comp_id)
 		if len(res):
-			return tuple([i[0] for i in res]), res[0][1]
+			return tuple([{"slug": i[0], "name": i[1]} for i in res]), res[0][2]
 		return tuple(), None
 	
 	@staticmethod
 	def get_slugs_from_ids_from_virt(virt_id):
 		task_slug_list = []
-		for task in check(db.query("""SELECT slug
+		for task in check(db.query("""SELECT slug, imezadatka
 								FROM zadatak
 								WHERE zadatakid IN(SELECT unnest(zadaci)
 													FROM virtnatjecanje
 													WHERE virtnatjecanjeid = %s)""",
 													virt_id)):
-			task_slug_list.append(task[0])
+			task_slug_list.append({"slug": task[0], "name": task[1]})
 		return task_slug_list
 	
 	@staticmethod
