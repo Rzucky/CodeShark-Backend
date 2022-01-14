@@ -65,7 +65,12 @@ def competitions():
 
 @app.route('/create_competition', methods=['GET','POST'])
 def create_competition():
-	username = request.headers.get('session')
+	session_id = request.headers.get('session')
+	if Session.check_expired(session_id):
+		return {"error": "token expired"}, 419
+	session_id, username = Session.verify(session_id)
+	if session_id is None:
+		return {"error": "token invalid"}, 401
 	
 	if request.method == 'GET':
 		task_list = []
@@ -148,7 +153,12 @@ def users():
 
 @app.route('/virtual_competitions', methods=['GET'])
 def virtual_competitions():
-	username = request.headers.get('session')
+	session_id = request.headers.get('session')
+	if Session.check_expired(session_id):
+		return {"error": "token expired"}, 419
+	session_id, username = Session.verify(session_id)
+	if session_id is None:
+		return {"error": "token invalid"}, 401
 	virt_list_data = VirtualCompetition.get_virt_comps_from_user(username)
 	virt_list = []
 	for virt in virt_list_data:
@@ -170,7 +180,12 @@ def virtual_competitions():
 @app.route('/virtual_competition', methods=['POST'])
 def virtual_competition(virt_id=None, slug_real_comp=None):
 	if request.method == 'POST':
-		username = request.headers.get('session')
+		session_id = request.headers.get('session')
+		if Session.check_expired(session_id):
+			return {"error": "token expired"}, 419
+		session_id, username = Session.verify(session_id)
+		if session_id is None:
+			return {"error": "token invalid"}, 401
 		# creates a virtual competition from a real one
 		if slug_real_comp is not None:
 			if not Competition.check_if_comp_slug_exists(slug_real_comp):
@@ -222,63 +237,59 @@ def avatar(username):
 
 	return {"error" : "No profile picture available"}, 404
 
-@app.route('/task/<slug>', methods=['GET', 'POST'])
+@app.route('/task/<slug>', methods=['GET'])
 def task(slug):
-	if request.method == 'GET':
-		username = request.headers.get('session')
-		zad, error = Task.get_task(slug)
-		if error:
-			return {"error": error}, 403
+	session_id = request.headers.get('session')
+	if Session.check_expired(session_id):
+		return {"error": "token expired"}, 419
+	session_id, username = Session.verify(session_id)
+	if session_id is None:
+		return {"error": "token invalid"}, 401
 
-		uploaded_solutions = []
-		user_score = UploadedSolution.check_solution_score(slug, username)
-		last_user_solution = UploadedSolution.get_latest_solution(slug, username)
-		uploaded_solutions_tuples = Task.get_other_task_solutions(slug)
-		if user_score == 1.0:
-			for uploaded_solution in uploaded_solutions_tuples:
-				if uploaded_solution[1] == 1.0:
-					# also get code from people with 100%
-					uploaded_solutions.append({
-						"username": uploaded_solution[0],
-						"score": uploaded_solution[1],
-						"avg_exe_time": uploaded_solution[2],
-						"code": uploaded_solution[3],
-					})
-				else:
-					uploaded_solutions.append({
-						"username": uploaded_solution[0],
-						"score": uploaded_solution[1],
-						"avg_exe_time": uploaded_solution[2],
-					})
-		else:
-			for uploaded_solution in uploaded_solutions_tuples:
+	zad, error = Task.get_task(slug)
+	if error:
+		return {"error": error}, 403
+
+	uploaded_solutions = []
+	user_score = UploadedSolution.check_solution_score(slug, username)
+	last_user_solution = UploadedSolution.get_latest_solution(slug, username)
+	uploaded_solutions_tuples = Task.get_other_task_solutions(slug)
+	if user_score == 1.0:
+		for uploaded_solution in uploaded_solutions_tuples:
+			if uploaded_solution[1] == 1.0:
+				# also get code from people with 100%
+				uploaded_solutions.append({
+					"username": uploaded_solution[0],
+					"score": uploaded_solution[1],
+					"avg_exe_time": uploaded_solution[2],
+					"code": uploaded_solution[3],
+				})
+			else:
 				uploaded_solutions.append({
 					"username": uploaded_solution[0],
 					"score": uploaded_solution[1],
 					"avg_exe_time": uploaded_solution[2],
 				})
+	else:
+		for uploaded_solution in uploaded_solutions_tuples:
+			uploaded_solutions.append({
+				"username": uploaded_solution[0],
+				"score": uploaded_solution[1],
+				"avg_exe_time": uploaded_solution[2],
+			})
 
-		author_name, author_lastname = Task.get_author_name(slug)
-		
-		return {
-			"task_name":			f"{zad.task_name}",
-			"difficulty":			f"{zad.difficulty}",
-			"max_exe_time":			f"{zad.max_exe_time}",
-			"task_text":			f"{zad.task_text}",
-			"slug":					f"{zad.slug}",
-			"name_last_name":		f"{author_name} {author_lastname}",
-			"last_user_solution":	last_user_solution,
-			"uploaded_solutions":	uploaded_solutions
-			}, 200
-				
-
-	elif request.method == 'POST':
-		data = request.json
-		user = User.get_user(data["username"])
-		# can this happen? wrong request?
-		if not user:
-			return {"error": "user doesn't exist or wrong username"}, 400
-		return {"status": "ok"}, 200
+	author_name, author_lastname = Task.get_author_name(slug)
+	
+	return {
+		"task_name":			f"{zad.task_name}",
+		"difficulty":			f"{zad.difficulty}",
+		"max_exe_time":			f"{zad.max_exe_time}",
+		"task_text":			f"{zad.task_text}",
+		"slug":					f"{zad.slug}",
+		"name_last_name":		f"{author_name} {author_lastname}",
+		"last_user_solution":	last_user_solution,
+		"uploaded_solutions":	uploaded_solutions
+		}, 200
 
 @app.route('/tasks', methods=['GET'])
 def tasks():
@@ -294,12 +305,18 @@ def tasks():
 
 @app.route('/create_task', methods=['POST'])
 def create_task():
+	session_id = request.headers.get('session')
+	if Session.check_expired(session_id):
+		return {"error": "token expired"}, 419
+	session_id, username = Session.verify(session_id)
+	if session_id is None:
+		return {"error": "token invalid"}, 401
+
 	data = request.json
-	data["username"] = request.headers.get('session') ##
 
 	rank = db.query(f"""SELECT nivouprava
 						FROM korisnik
-						WHERE korisnickoime = %s;""", (data["username"],))
+						WHERE korisnickoime = %s;""", username)
 	if not rank:
 		return {"error": "User does not exist"}, 400
 
@@ -316,7 +333,7 @@ def create_task():
 																	FROM korisnik
 																	WHERE korisnickoime = %s))
 								RETURNING zadatakid;""",
-								data["task_name"], data["difficulty"], data["max_exe_time"], data["task_text"], data["private"], slugify(data["task_name"]), data["username"],
+								data["task_name"], data["difficulty"], data["max_exe_time"], data["task_text"], data["private"], slugify(data["task_name"]), username,
 								False)
 
 		if db.error:
@@ -341,166 +358,171 @@ def create_task():
 
 @app.route('/execute_task', methods=['POST'])
 def execute_task():
-	if request.method == 'POST':
-		data = request.json
+	session_id = request.headers.get('session')
+	if Session.check_expired(session_id):
+		return {"error": "token expired"}, 419
+	session_id, user = Session.verify(session_id)
+	if session_id is None:
+		return {"error": "token invalid"}, 401
 
+	data = request.json
+
+	try:
+		slug = data["slug"]
+		lang = data["lang"].lower()
+		code = data["code"] # Length ?
+	except:
+		return {"error": "invalid data sent"}, 400
+
+	submit_time = datetime.now()
+
+	solutions_dir = cfg.get_config("solutions_dir")
+	solution_file = f"{solutions_dir}/{user}_{time.time()}"
+
+	user_account_name = cfg.get_config("user_account_name")
+	compile_timeout = cfg.get_config("compile_timeout") # seconds
+
+	# Prepare command for each language
+	if lang in ["py3"]:
+		with open(f"{solution_file}.py3", "w") as fp:
+			fp.write(code)
+
+		command = f"sudo -u {user_account_name} {cfg.get_config('python_interpreter')} {solution_file}.py3"
+
+	elif lang in ["c++"]:
+		with open(f"{solution_file}.cpp", "w") as fp:
+			fp.write(code)
+
+		# Compile
+		command = f"sudo -u {user_account_name} g++ {solution_file}.cpp -o {solution_file}.out -std={cfg.get_config('c++_compiler_version')}"
+
+		proc = None
 		try:
-			slug = data["slug"]
-			user = data["username"]
-			lang = data["lang"].lower()
-			code = data["code"] # Length ?
-		except:
-			return {"error": "invalid data sent"}, 400
-
-		submit_time = datetime.now()
-
-		solutions_dir = cfg.get_config("solutions_dir")
-		solution_file = f"{solutions_dir}/{user}_{time.time()}"
-
-		user_account_name = cfg.get_config("user_account_name")
-		compile_timeout = cfg.get_config("compile_timeout") # seconds
-
-		# Prepare command for each language
-		if lang in ["py3"]:
-			with open(f"{solution_file}.py3", "w") as fp:
-				fp.write(code)
-
-			command = f"sudo -u {user_account_name} {cfg.get_config('python_interpreter')} {solution_file}.py3"
-
-		elif lang in ["c++"]:
-			with open(f"{solution_file}.cpp", "w") as fp:
-				fp.write(code)
-
-			# Compile
-			command = f"sudo -u {user_account_name} g++ {solution_file}.cpp -o {solution_file}.out -std={cfg.get_config('c++_compiler_version')}"
-
-			proc = None
-			try:
-				proc = subp.run(shlex.split(command), stdout=subp.PIPE, check=True, timeout=compile_timeout)
-			except subp.CalledProcessError:
-				return {
-							"error": "compile error",
-							"compiler_output": proc.stdout,
-						}, 400
-			except subp.TimeoutExpired:
-				return {
-							"error": "compile timeout",
-							"compiler_output": "",
-						}, 400
-
-			# Set permissions
-			proc = None
-			try:
-				proc = subp.run(shlex.split(f"sudo -u {user_account_name} chmod 755 {solution_file}.out"), check=True)
-			except subp.CalledProcessError:
-				return {"error": "chmod error"}, 503 # ?
-
-			# Set actual execution command
-			command = f"sudo -u {user_account_name} {solution_file}.out"
-
-		elif lang in ["c"]:
-			with open(f"{solution_file}.c", "w") as fp:
-				fp.write(code)
-
-			# Compile
-			command = f"sudo -u {user_account_name} gcc {solution_file}.c -o {solution_file}.out -std={cfg.get_config('c_compiler_version')}"
-
-			proc = None
-			try:
-				proc = subp.run(shlex.split(command), stdout=subp.PIPE, check=True, timeout=compile_timeout)
-			except subp.CalledProcessError:
-				return {
-							"error": "compile error",
-							"compiler_output": proc.stdout,
-						}, 400
-			except subp.TimeoutExpired:
-				return {
-							"error": "compile timeout",
-							"compiler_output": "",
-						}, 400
-
-			# Set permissions
-			proc = None
-			try:
-				proc = subp.run(shlex.split(f"sudo -u {user_account_name} chmod 755 {solution_file}.out"), check=True)
-			except subp.CalledProcessError:
-				return {"error": "chmod error"}, 503 # ?
-
-			# Set actual execution command
-			command = f"sudo -u {user_account_name} {solution_file}.out"
-
-		else:
-			return {"error": "unsupported language"}, 400
-
-		# Watch out for large amounts of tests
-		command = shlex.split(command)
-
-		task, err = Task.get_task(slug)
-		if not task:
+			proc = subp.run(shlex.split(command), stdout=subp.PIPE, check=True, timeout=compile_timeout)
+		except subp.CalledProcessError:
 			return {
-					"error": err,
-				}, 403
+						"error": "compile error",
+						"compiler_output": proc.stdout,
+					}, 400
+		except subp.TimeoutExpired:
+			return {
+						"error": "compile timeout",
+						"compiler_output": "",
+					}, 400
 
-		tests = db.query("""SELECT testprimjer.*
-							FROM testprimjer
-							JOIN zadatak
-								USING(zadatakid)
-							WHERE zadatak.slug = %s
-							ORDER BY ulaz ASC""", task.slug)
-
-		total_tests = len(tests)
-		passed = 0
-		results = {}
-		total_time = 0
-
-		for i, test in enumerate(tests):
-			test = TestCase(*test)
-			proc = subp.Popen(command, stdin=subp.PIPE, stdout=subp.PIPE)
-
-			try:
-				start_time = time.time()
-				output = proc.communicate(input=test.input.encode(encoding='utf-8'),
-											timeout=float(task.max_exe_time))[0] # Data is also buffered in memory !
-				total_time += time.time() - start_time
-
-				output = output.decode(encoding='utf-8').strip() # Or whatever is required
-				if test.output == output:
-					results[i] = {"passed": True, "description": "correct answer"}
-					passed += 1
-				else:
-					results[i] = {"passed": False, "description": "wrong answer"}
-
-			except subp.TimeoutExpired:
-				proc.kill()
-				results[i] = {"passed": False, "description": "timeout"}
-
-		# Store solution data
-		upload = UploadedSolution(	code,
-									float(passed) / total_tests,
-									submit_time,
-									total_time / total_tests,
-									db.query("SELECT korisnikid FROM korisnik WHERE korisnickoime = %s", user),
-									task.task_id)
-
-		# Delete temporary code files
+		# Set permissions
+		proc = None
 		try:
-			os.remove(f"{solution_file}*") # code and .out
-		except OSError as e:
-			pass
+			proc = subp.run(shlex.split(f"sudo -u {user_account_name} chmod 755 {solution_file}.out"), check=True)
+		except subp.CalledProcessError:
+			return {"error": "chmod error"}, 503 # ?
 
-		db.query("""INSERT INTO uploadrjesenja
-					VALUES (%s, %s, %s, %s, %s, %s)""", upload.submitted_solution,
-														upload.passed,
-														upload.submitted_time,
-														upload.avg_exe_time,
-														upload.user_id,
-														upload.task_id)
+		# Set actual execution command
+		command = f"sudo -u {user_account_name} {solution_file}.out"
 
+	elif lang in ["c"]:
+		with open(f"{solution_file}.c", "w") as fp:
+			fp.write(code)
+
+		# Compile
+		command = f"sudo -u {user_account_name} gcc {solution_file}.c -o {solution_file}.out -std={cfg.get_config('c_compiler_version')}"
+
+		proc = None
+		try:
+			proc = subp.run(shlex.split(command), stdout=subp.PIPE, check=True, timeout=compile_timeout)
+		except subp.CalledProcessError:
+			return {
+						"error": "compile error",
+						"compiler_output": proc.stdout,
+					}, 400
+		except subp.TimeoutExpired:
+			return {
+						"error": "compile timeout",
+						"compiler_output": "",
+					}, 400
+
+		# Set permissions
+		proc = None
+		try:
+			proc = subp.run(shlex.split(f"sudo -u {user_account_name} chmod 755 {solution_file}.out"), check=True)
+		except subp.CalledProcessError:
+			return {"error": "chmod error"}, 503 # ?
+
+		# Set actual execution command
+		command = f"sudo -u {user_account_name} {solution_file}.out"
+
+	else:
+		return {"error": "unsupported language"}, 400
+
+	# Watch out for large amounts of tests
+	command = shlex.split(command)
+
+	task, err = Task.get_task(slug)
+	if not task:
 		return {
-					"result": f"{passed}/{total_tests}",
-					"percentage": float(passed) / total_tests,
-					"tests": results,
-				}, 200
+				"error": err,
+			}, 403
+
+	tests = db.query("""SELECT testprimjer.*
+						FROM testprimjer
+						JOIN zadatak
+							USING(zadatakid)
+						WHERE zadatak.slug = %s
+						ORDER BY ulaz ASC""", task.slug)
+
+	total_tests = len(tests)
+	passed = 0
+	results = {}
+	total_time = 0
+
+	for i, test in enumerate(tests):
+		test = TestCase(*test)
+		proc = subp.Popen(command, stdin=subp.PIPE, stdout=subp.PIPE)
+
+		try:
+			start_time = time.time()
+			output = proc.communicate(input=test.input.encode(encoding='utf-8'),
+										timeout=float(task.max_exe_time))[0] # Data is also buffered in memory !
+			total_time += time.time() - start_time
+
+			output = output.decode(encoding='utf-8').strip() # Or whatever is required
+			if test.output == output:
+				results[i] = {"passed": True, "description": "correct answer"}
+				passed += 1
+			else:
+				results[i] = {"passed": False, "description": "wrong answer"}
+
+		except subp.TimeoutExpired:
+			proc.kill()
+			results[i] = {"passed": False, "description": "timeout"}
+
+	# Store solution data
+	upload = UploadedSolution(	code,
+								float(passed) / total_tests,
+								submit_time,
+								total_time / total_tests,
+								db.query("SELECT korisnikid FROM korisnik WHERE korisnickoime = %s", user),
+								task.task_id)
+
+	# Delete temporary code files
+	try:
+		os.remove(f"{solution_file}*") # code and .out
+	except OSError as e:
+		pass
+
+	db.query("""INSERT INTO uploadrjesenja
+				VALUES (%s, %s, %s, %s, %s, %s)""", upload.submitted_solution,
+													upload.passed,
+													upload.submitted_time,
+													upload.avg_exe_time,
+													upload.user_id,
+													upload.task_id)
+
+	return {
+				"result": f"{passed}/{total_tests}",
+				"percentage": float(passed) / total_tests,
+				"tests": results,
+			}, 200
 
 @app.route('/members/<username>', methods=['GET'])
 def profile(username):
@@ -571,12 +593,19 @@ def profile(username):
 
 @app.route('/edit_profile', methods=['POST'])
 def edit_profile():
+	session_id = request.headers.get('session')
+	if Session.check_expired(session_id):
+		return {"error": "token expired"}, 419
+	session_id, fromuser = Session.verify(session_id)
+	if session_id is None:
+		return {"error": "token invalid"}, 401
+
 	data = dict(request.form)
 
-	if "fromuser" not in data:
-		return {"error": "User requesting edit not specified"}, 400
+	# if "fromuser" not in data:
+	# 	return {"error": "User requesting edit not specified"}, 400
 
-	fromuser = data.pop("fromuser")
+#	fromuser = data.pop("fromuser")
 	foruser = data.pop("foruser") if "foruser" in data else fromuser
 
 	rank = db.query("""SELECT nivouprava
@@ -697,6 +726,8 @@ def login():
 		return {"error": "User is not activated"}, 401
 	
 	session_id = Session.obtain(session_id, user.username)
+	if session_id is None:
+		return {"error": "Incorrect session id"}, 400
 
 	return {"status": "Successfully logged in",
 			"session_id": session_id,

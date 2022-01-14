@@ -4,7 +4,7 @@ from slugify import slugify
 from enum import IntEnum
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from database import PGDB
 db = PGDB()
@@ -36,19 +36,11 @@ class User:
 											WHERE korisnickoime = %s
 												AND prolaznost = 1;""", self.username)
 
-		# currently for testing purposes
-		if num_correctly_solved == 0:
-			num_correctly_solved = 1
-
 		num_attempted = db.query("""SELECT COUNT (DISTINCT  zadatakid)
 									FROM uploadrjesenja
 									JOIN korisnik 
 										USING(korisnikid) 
 									WHERE korisnickoime = %s""", self.username)
-
-		# currently for testing purposes
-		if num_attempted == 0:
-			num_attempted = 3
 
 		self.solved = num_correctly_solved
 		self.attempted = num_attempted
@@ -171,15 +163,16 @@ class Session:
 	def username_from_sessionid(session_id):
 		for resp in check(db.query("""SELECT korisnickoime, pocetaksesije
 						FROM sesija JOIN korisnik USING(korisnikid)
-						WHERE sesijaid =  %s""", session_id)):
+						WHERE sesijaid =  %s ORDER BY pocetaksesije DESC """, session_id)):
 			return resp[0], resp[1]
 		return None, None
-
 	@staticmethod
 	def create_session_id(username):
 		session_id = uuid.uuid4().hex
 		db.query("""INSERT INTO sesija 
-					VALUES(%s, NOW(), %s)""",
+					VALUES(%s, NOW(), 
+						(SELECT korisnikid FROM korisnik 
+						WHERE korisnickoime = %s))""",
 					session_id, username)
 		return session_id
 
@@ -187,14 +180,20 @@ class Session:
 	def check_expired(session_id):
 		_, tm = Session.username_from_sessionid(session_id)
 		current_time = datetime.now()
-		if tm is None or not(current_time - datetime.timedelta(days=7) <= tm <= current_time):
+		if tm is None or not(current_time - timedelta(days=7) <= tm <= current_time):
 			# Expired
 			return True
 		return False
 
 	@staticmethod
 	def obtain(session_id, username):
+		if session_id == '':
+			return Session.create_session_id(username)
+		if username != Session.username_from_sessionid(session_id)[0]:
+			return None
 		if Session.check_expired(session_id):
+			db.query("""DELETE FROM sesija
+					WHERE sesijaid = %s""", session_id)
 			return Session.create_session_id(username)
 		return session_id
 
@@ -204,13 +203,6 @@ class Session:
 		if username is not None:
 			return Session.obtain(session_id, username), username
 		return None, "Invalid token"
-
-		# username, time = Session.username_from_sessionid(session_id)
-		# current_time = datetime.now()
-		# if time is None or not(current_time - datetime.timedelta(days=7) <= time <= current_time):
-		# 	return user.username, Session.create_session_id(user) if user is not None else True
-		# return username, session_id if user is not None else False
-
 
 class Competition:
 	def __init__(self, comp_id, comp_name, comp_text, end_time, start_time, trophy_img, task_count, author_id, comp_class_id, trophy_id, slug):
@@ -381,12 +373,14 @@ class Task:
 
 	@staticmethod
 	def get_random_tasks(n):
+		if type(n) != int or n < 1:
+			n = 1
 		# if just 1, fully random
 		if n == 1:
-			return db.query("""SELECT zadatakid FROM zadatak 
+			return [db.query("""SELECT zadatakid FROM zadatak 
 								WHERE privatnost = false
 								ORDER BY RANDOM ()
-								LIMIT 1;""")
+								LIMIT 1;""")]
 
 		task_list = set()
 		count = db.query("""SELECT COUNT(DISTINCT zadatakid) 
