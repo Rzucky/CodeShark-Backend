@@ -72,7 +72,10 @@ class PGDB:
 	@classmethod
 	def __seterror(cls, err):
 		cls.error = type(err) if err is not None else None
-		if err: cls.errormsg = err.pgerror
+		try:
+			cls.errormsg = err.pgerror
+		except:
+			pass
 
 	@classmethod
 	def error_handler(cls, func=None):
@@ -155,14 +158,15 @@ class PGDB:
 			try:
 				cur.execute(query, params)
 
+				qq = query.strip().upper()
 				if autocommit and cls.__autocommit: # argument overrides global setting
-					qq = query.strip().upper()
 					for typ in ["INSERT", "UPDATE", "DELETE"]:
 						if qq.startswith(typ):
 							cls.commit()
 							break
 
-				rows = cur.fetchall()
+				if qq.startswith("SELECT") or "RETURNING" in qq:
+					rows = cur.fetchall()
 
 				if cls.__auto_shorten:
 					#print(f">>>>>> BEFORE SHORTENING: {rows}")

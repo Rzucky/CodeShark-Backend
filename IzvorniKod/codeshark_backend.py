@@ -122,8 +122,8 @@ def competition(competition_slug):
 		if comp:
 			author_name, author_lastname = Task.get_author_name_from_comp_slug(competition_slug)
 			tasks = Competition.get_tasks_in_comp(comp.slug)
-			comp_class_name, error = Competition.get_class_name_from_class_id(comp.comp_class_id)
-			return{
+			comp_class_name = Competition.get_class_name_from_class_id(comp.comp_class_id)
+			return {
 				"comp_slug":		f"{comp.slug}",
 				"comp_name":		f"{comp.comp_name}",
 				"comp_text":		f"{comp.comp_text}",
@@ -652,8 +652,9 @@ def edit_profile():
 	querystr = querystr[:-1] if querystr.endswith(",") else querystr
 	querystr += f" WHERE korisnickoime = %s;"
 	queryparams += [foruser]
+	queryparams = tuple(queryparams)
 
-	db.query(querystr, queryparams)
+	db.query(querystr, *queryparams)
 
 	if imgreceived:
 		try:
