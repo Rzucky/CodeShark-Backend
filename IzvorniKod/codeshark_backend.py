@@ -710,7 +710,7 @@ def edit_profile():
 
 @app.route('/login', methods=['POST'])
 def login():
-	session_id = request.headers.get('session')
+	session_id = request.headers.get('session') if request.headers.get('session') else ''
 	data = request.json
 
 	user = User.get_user(data["username"])
