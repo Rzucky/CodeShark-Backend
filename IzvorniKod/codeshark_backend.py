@@ -456,6 +456,7 @@ def execute_task():
 
 		return {
 					"result": f"{passed}/{total_tests}",
+					"percentage": float(passed) / total_tests,
 					"tests": results,
 				}, 200
 
