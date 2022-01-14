@@ -20,6 +20,7 @@ from database import PGDB
 db = PGDB()
 db.logging(True)
 db.autocommit(True)
+#db.add_middle(lambda lst: lst if type(lst) in [list, tuple, set] else [lst])
 #db.error_handler()
 
 cfg.load_config()
@@ -440,7 +441,7 @@ def execute_task():
 
 		for i, test in enumerate(tests):
 			test = TestCase(*test)
-			proc = subp.Popen(command, stdin=subp.PIPE, stdout=subp.PIPE) # TODO: log executions
+			proc = subp.Popen(command, stdin=subp.PIPE, stdout=subp.PIPE)
 
 			try:
 				start_time = time.time()
@@ -471,7 +472,6 @@ def execute_task():
 		try:
 			os.remove(f"{solution_file}*") # code and .out
 		except OSError as e:
-			# TODO: Log the error (just don't use Log4j pls)
 			pass
 
 		db.query("""INSERT INTO uploadrjesenja
@@ -516,14 +516,13 @@ def profile(username):
 				"passed": f"{task.passed}",
 				"submitted_time": f"{task.submitted_time}",
 				"avg_exe_time": f"{task.avg_exe_time}",
-				## all in one query?
 				"task_name": f"{task_name}"
 			})
 
 	elif user.rank in [Rank.LEADER, Rank.ADMIN]:	# Voditelj || Admin
 		created_competitions_ins = user.get_created_competitons()
-		for comp in created_competitions_ins: #TODO: potential error handling? is it possible?
-			comp_class_name, error = Competition.get_class_name_from_class_id(comp.comp_class_id)
+		for comp in created_competitions_ins: 
+			comp_class_name = Competition.get_class_name_from_class_id(comp.comp_class_id)
 			created_competitions.append({
 				"comp_slug":		f"{comp.slug}",
 				"comp_name":		f"{comp.comp_name}",

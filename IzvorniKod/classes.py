@@ -12,7 +12,6 @@ class Rank(IntEnum):
 	LEADER = 2
 	ADMIN = 3
 
-#db.add_middle(lambda lst: lst if type(lst) in [list, tuple, set] else [lst])
 def check(lst):
 	return lst if type(lst) in [list, tuple, set] else [lst]
 
@@ -34,7 +33,7 @@ class User:
 												USING(korisnikid) 
 											WHERE korisnickoime = %s
 												AND prolaznost = 1;""", self.username)
-		
+
 		# currently for testing purposes
 		if num_correctly_solved == 0:
 			num_correctly_solved = 1
@@ -205,7 +204,7 @@ class Competition:
 	def format_competitions(comp_list_instances):
 		competition_list = []
 		for comp in comp_list_instances:
-			comp_class_name, error = Competition.get_class_name_from_class_id(comp.comp_class_id)
+			comp_class_name = Competition.get_class_name_from_class_id(comp.comp_class_id)
 			competition_list.append({
 				"comp_slug":		f"{comp.slug}",
 				"comp_name":		f"{comp.comp_name}",
@@ -231,13 +230,10 @@ class Competition:
 		return task_slug_list
 
 	@staticmethod
-	def get_class_name_from_class_id(class_id): ##
-		resp = db.query("""SELECT nazivklasenatjecanja 
+	def get_class_name_from_class_id(class_id):
+		return db.query("""SELECT nazivklasenatjecanja 
 							FROM klasanatjecanja 
 							WHERE idklasenatjecanja = %s""", class_id)
-		if resp:
-			return resp, None
-		return None, "Class name doesn't exist"
 
 	@staticmethod
 	def create_competition(data, trophy_id):
@@ -384,7 +380,6 @@ class Task:
 				return list(task_list)
 		return list(task_list)
 
-
 	@staticmethod
 	def get_task(slug):
 		for resp in db.query("""SELECT *
@@ -392,7 +387,8 @@ class Task:
 							WHERE slug = %s""", slug):
 			task = Task(*resp)
 			if task.private:
-				return None, "Task does not exist" # we won't give info if the task is private	
+				# we won't give info if the task is private
+				return None, "Task does not exist" 	
 			return task, None
 
 		return None, "Task does not exist"
