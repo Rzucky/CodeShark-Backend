@@ -220,12 +220,37 @@ def avatar(username):
 @app.route('/task/<slug>', methods=['GET', 'POST'])
 def task(slug):
 	if request.method == 'GET':
+		username = request.headers.get('session')
 		zad, error = Task.get_task(slug)
 		if not zad:
 			return {"error": error}, 403
-		
-		## user koji req 100% onda vidi kod 100% od ostalih usera i imena njihova
-		## ostali useri samo prolaznost
+
+		uploaded_solutions = []
+		user_score = UploadedSolution.check_solution_score(slug, username)
+		uploaded_solutions_tuples = Task.get_other_task_solutions(slug)
+		if user_score == 1.0:
+			for uploaded_solution in uploaded_solutions_tuples:
+				if uploaded_solution[1] == 1.0:
+					# also get code from peopl with 100%
+					uploaded_solutions.append({
+						"username": uploaded_solution[0],
+						"score": uploaded_solution[1],
+						"avg_exe_time": uploaded_solution[2],
+						"code": uploaded_solution[3],
+					})
+				else:
+					uploaded_solutions.append({
+						"username": uploaded_solution[0],
+						"score": uploaded_solution[1],
+						"avg_exe_time": uploaded_solution[2],
+					})
+		else:
+			for uploaded_solution in uploaded_solutions_tuples:
+				uploaded_solutions.append({
+					"username": uploaded_solution[0],
+					"score": uploaded_solution[1],
+					"avg_exe_time": uploaded_solution[2],
+				})
 
 		author_name, author_lastname = Task.get_author_name(slug)
 		
@@ -235,7 +260,8 @@ def task(slug):
 			"max_exe_time":			f"{zad.max_exe_time}",
 			"task_text":			f"{zad.task_text}",
 			"slug":					f"{zad.slug}",
-			"name_last_name":		f"{author_name} {author_lastname}"
+			"name_last_name":		f"{author_name} {author_lastname}",
+			"uploaded_solutions":	uploaded_solutions
 			}, 200
 				
 
