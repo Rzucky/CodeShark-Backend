@@ -159,6 +159,26 @@ class User:
 			return User(*resp)
 		return None
 
+class Session:
+	def __init__(self, sessionid, userid, session_time):
+		self.sessionid = sessionid
+		self.userid = userid
+		self.session_time = session_time
+
+	@staticmethod
+	def username_from_sessionid(session_id):
+		for resp in check(db.query("""SELECT korisnikid, pocetaksesije
+						FROM sesija 
+						WHERE sesijaid = %s""", session_id)):
+			return resp[0], resp[1]
+
+	@staticmethod
+	def insert_session_id(session_id, username):
+		return db.query("""INSERT INTO sesija 
+					VALUES(%s, NOW(), %s) RETURNING sesijaid"""
+					, session_id, username)
+
+
 class Competition:
 	def __init__(self, comp_id, comp_name, comp_text, end_time, start_time, trophy_img, task_count, author_id, comp_class_id, trophy_id, slug):
 		self.comp_id = comp_id
