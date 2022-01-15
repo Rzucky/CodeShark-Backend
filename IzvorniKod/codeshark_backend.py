@@ -451,7 +451,7 @@ def execute_task():
 		except subp.CalledProcessError as err:
 			return {
 						"error": "compile error",
-						"compiler_output": err.stdout,
+						"compiler_output": err.stdout.decode(encoding='utf-8'),
 					}, 400
 		except subp.TimeoutExpired as err:
 			return {
@@ -482,7 +482,7 @@ def execute_task():
 		except subp.CalledProcessError as err:
 			return {
 						"error": "compile error",
-						"compiler_output": err.stdout,
+						"compiler_output": err.stdout.decode(encoding='utf-8'),
 					}, 400
 		except subp.TimeoutExpired as err:
 			return {
