@@ -331,7 +331,7 @@ class Competition:
 		start = db.query("""SELECT vrijemepoc
 							FROM natjecanje
 							WHERE slug = %s""", slug)
-		if start > datetime.now()
+		if start > datetime.now():
 			return False
 		return True
 
