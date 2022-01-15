@@ -120,10 +120,14 @@ def create_competition():
 		if comp_slug is not None:
 			return {"comp_slug": comp_slug}, 200
 		else:
-			os.remove(os.path.join(cfg.get_config("trophy_upload_dir"), trophy_file))
+			# removing trophy from db
+			if img_uploaded:
+				db.query("""DELETE FROM trofej 
+								WHERE trofejid = %s""", trophy_id)
+				os.remove(os.path.join(cfg.get_config("trophy_upload_dir"), trophy_file))
 			return {"error": error}, 400
 
-@app.route('/competition/<competition_slug>', methods=['GET'])
+@app.route('/competition/<competition_slug>', methods=['GET', 'PUT'])
 def competition(competition_slug):
 	session_id = request.headers.get('session')
 	if Session.check_expired(session_id):
@@ -131,35 +135,43 @@ def competition(competition_slug):
 	session_id, username = Session.verify(session_id)
 	if session_id is None:
 		return {"error": "token invalid"}, 401
-	
-	is_applied = Competition.is_participant(username, competition_slug)
-	is_finished = Competition.has_finished(competition_slug)
-	# leaderboard_list = []
-	# if is_finished and is_applied:
-	# 	pass
+	if request.method == 'GET':
+		is_applied = Competition.is_participant(username, competition_slug)
+		is_finished = Competition.has_finished(competition_slug)
+		leaderboard_list = []
+		if is_finished:
+			leaderboard_list = Competition.leaderboards(competition_slug) 
 
-	comp, error = Competition.get_competition(competition_slug)
-	if comp:
-		author_name, author_lastname = Task.get_author_name_from_comp_slug(competition_slug)
-		tasks = Competition.get_tasks_in_comp(comp.slug)
-		comp_class_name = Competition.get_class_name_from_class_id(comp.comp_class_id)
-		return {
-			"comp_slug":		f"{comp.slug}",
-			"comp_name":		f"{comp.comp_name}",
-			"comp_text":		f"{comp.comp_text}",
-			"author_name":		f"{author_name} {author_lastname}",
-			"start_time":		f"{comp.start_time}",
-			"end_time":			f"{comp.end_time}",
-			"trophy_img":		f"{comp.trophy_img}",
-			"trophy_id":		f"{comp.trophy_id}",
-			"task_count":		f"{comp.task_count}",
-			"comp_class_name":	f"{comp_class_name}",
-			"is_applied":		is_applied,
-			"is_finished":		is_finished,
-			"tasks":			tasks
-		}, 200
+		comp, error = Competition.get_competition(competition_slug)
+		if comp:
+			author_name, author_lastname = Task.get_author_name_from_comp_slug(competition_slug)
+			tasks = Competition.get_tasks_in_comp(comp.slug)
+			comp_class_name = Competition.get_class_name_from_class_id(comp.comp_class_id)
+			return {
+				"comp_slug":		f"{comp.slug}",
+				"comp_name":		f"{comp.comp_name}",
+				"comp_text":		f"{comp.comp_text}",
+				"author_name":		f"{author_name} {author_lastname}",
+				"start_time":		f"{comp.start_time}",
+				"end_time":			f"{comp.end_time}",
+				"trophy_img":		f"{comp.trophy_img}",
+				"trophy_id":		f"{comp.trophy_id}",
+				"task_count":		f"{comp.task_count}",
+				"comp_class_name":	f"{comp_class_name}",
+				"is_applied":		is_applied,
+				"is_finished":		is_finished,
+				"leaderboards":		leaderboard_list,
+				"tasks":			tasks
+			}, 200
+		else:
+			return {"error": error}, 403
 	else:
-		return {"error": error}, 403
+		if not Competition.has_finished(competition_slug):
+			if Competition.apply(username, competition_slug):
+				return{"status": "Successfully applied to competition"}, 200
+			return {"error": "Failed to apply to competition"}, 400
+
+		return {"error": "Competition has ended, start a virtual one"}, 400
 
 @app.route('/users', methods=['GET'])
 def users():

@@ -331,6 +331,18 @@ class Competition:
 		return False
 
 	@staticmethod
+	def apply(username, slug):
+		if db.query("""INSERT INTO sudjelujena 
+					VALUES(
+						(SELECT korisnikid FROM korisnik 
+						WHERE korisnickoime = %s),
+						(SELECT natjecanjeid FROM natjecanje 
+						WHERE slug = %s)) RETURNING natjecanjeid"""
+					, username, slug):
+			return True
+		return False
+
+	@staticmethod
 	def check_if_comp_slug_exists(slug):
 		if db.query("""SELECT * FROM natjecanje 
 					WHERE slug = %s""", slug):
@@ -355,9 +367,26 @@ class Competition:
 			return False
 		return True
 	
-	# @staticmethod
-	# def leaderboards(slug):
-	#	pass
+	@staticmethod
+	def leaderboards(slug):  # Dome proud
+		lst = []
+		for resp in check(db.query("""SELECT korisnickoime, SUM(bodovi * prolaznost) as rezultat
+								FROM natjecanje JOIN zadatak ON natjecanje.natjecanjeid = zadatak.natjecanjeid
+								JOIN (
+									SELECT DISTINCT ON (korisnik.korisnickoime, uploadrjesenja.zadatakid)
+														korisnik.korisnickoime,
+														prolaznost, prosjvrijemeizvrs, predanorjesenje,
+														zadatakid, vrijemepredaje
+															FROM uploadrjesenja JOIN korisnik USING(korisnikid)
+															ORDER BY korisnickoime, zadatakid, prolaznost DESC, prosjvrijemeizvrs ASC)
+															as AllBestSolutions USING (zadatakid)
+								WHERE  natjecanje.slug = %s 
+								AND vrijemepredaje > vrijemepoc AND vrijemepredaje < vrijemekraj
+								GROUP BY korisnickoime
+								ORDER BY rezultat DESC""", slug)):
+			lst.append({"username": resp[0],
+						"score": resp[1]})
+		return lst
 
 class Trophy:
 	def __init__(self, trophy_id, trophy_name, trophy_img):
