@@ -516,12 +516,12 @@ class Task:
 
 	@staticmethod
 	def get_author_name_from_comp_slug(comp_slug):
-		for resp in db.query("""SELECT ime, prezime 
+		for resp in db.query("""SELECT ime, prezime, korisnickoime
 							FROM korisnik
 							JOIN natjecanje 
 								ON (autorid = korisnikid)
 							WHERE slug =  %s;""", comp_slug):
-			return resp[0], resp[1]
+			return resp[0], resp[1], resp[2]
 
 	@staticmethod
 	def get_recent_tasks():
@@ -688,3 +688,14 @@ class VirtualCompetition:
 			lst.append({"username": resp[0],
 						"score": resp[1]})
 		return lst
+
+	@staticmethod
+	def delete(virt_id, username):
+		if db.query("""DELETE FROM virtnatjecanje 
+					WHERE virtnatjecanjeid = %s AND 
+					korisnikid = (
+						SELECT korisnikid FROM korisnik 
+						WHERE korisnickoime = %s) 
+						RETURNING *""", virt_id, username):
+			return True
+		return False

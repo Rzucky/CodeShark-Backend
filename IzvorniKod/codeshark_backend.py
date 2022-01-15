@@ -142,9 +142,10 @@ def competition(competition_slug):
 		if is_finished:
 			leaderboard_list = Competition.leaderboards(competition_slug) 
 
+
 		comp, error = Competition.get_competition(competition_slug)
 		if comp:
-			author_name, author_lastname = Task.get_author_name_from_comp_slug(competition_slug)
+			author_name, author_lastname, author_username = Task.get_author_name_from_comp_slug(competition_slug)
 			tasks = Competition.get_tasks_in_comp(comp.slug)
 			comp_class_name = Competition.get_class_name_from_class_id(comp.comp_class_id)
 			return {
@@ -152,6 +153,7 @@ def competition(competition_slug):
 				"comp_name":		f"{comp.comp_name}",
 				"comp_text":		f"{comp.comp_text}",
 				"author_name":		f"{author_name} {author_lastname}",
+				"author_username":	f"{author_username}",
 				"start_time":		f"{comp.start_time}",
 				"end_time":			f"{comp.end_time}",
 				"trophy_img":		f"{comp.trophy_img}",
@@ -270,6 +272,18 @@ def virtual_competition(virt_id=None, slug_real_comp=None, ended_virt_id=None):
 				"name": 			name
 			}, 200
 		return {"error": error}, 400
+
+@app.route('/delete_virtual/<virt_id>', methods=['GET'])
+def delete(virt_id):
+	session_id = request.headers.get('session')
+	if Session.check_expired(session_id):
+		return {"error": "token expired"}, 419
+	session_id, username = Session.verify(session_id)
+	if session_id is None:
+		return {"error": "token invalid"}, 401
+	if VirtualCompetition.delete(virt_id, username):
+		return{"status": "Successfully deleted virtual competition"}
+	return{"error": "Couldn't delete virtual competition"}
 
 @app.route('/avatar/<username>', methods=['GET'])
 def avatar(username):
