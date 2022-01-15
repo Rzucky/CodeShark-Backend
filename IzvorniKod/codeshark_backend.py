@@ -344,21 +344,21 @@ def task(slug):
 				uploaded_solutions.append({
 					"username": uploaded_solution[0],
 					"score": uploaded_solution[1],
-					"avg_exe_time": uploaded_solution[2],
-					"code": uploaded_solution[3],
+					"avg_exe_time": round(uploaded_solution[2], 4),
+					"code": uploaded_solution[3]
 				})
 			else:
 				uploaded_solutions.append({
 					"username": uploaded_solution[0],
 					"score": uploaded_solution[1],
-					"avg_exe_time": uploaded_solution[2],
+					"avg_exe_time": round(uploaded_solution[2], 4)
 				})
 	else:
 		for uploaded_solution in uploaded_solutions_tuples:
 			uploaded_solutions.append({
 				"username": uploaded_solution[0],
 				"score": uploaded_solution[1],
-				"avg_exe_time": uploaded_solution[2],
+				"avg_exe_time": round(uploaded_solution[2], 4)
 			})
 
 	author_name, author_lastname = Task.get_author_name(slug)
@@ -643,7 +643,7 @@ def profile(username):
 				"submitted_solution": f"{task.submitted_solution}",
 				"passed": f"{task.passed}",
 				"submitted_time": f"{task.submitted_time}",
-				"avg_exe_time": f"{task.avg_exe_time}",
+				"avg_exe_time": f"{round(task.avg_exe_time, 4)}",
 				"task_name": f"{task_name}"
 			})
 
