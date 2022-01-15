@@ -186,10 +186,14 @@ def virtual_competition(virt_id=None, slug_real_comp=None):
 		session_id, username = Session.verify(session_id)
 		if session_id is None:
 			return {"error": "token invalid"}, 401
+
 		# creates a virtual competition from a real one
 		if slug_real_comp is not None:
 			if not Competition.check_if_comp_slug_exists(slug_real_comp):
 				return {"error": 'Incorrect competition slug'}, 400
+
+			if not Competition.check_startable(slug_real_comp):
+				return {"error": "Competition hasn't started yet"}, 400
 
 			virtual_id = VirtualCompetition.insert_real_into_virt(username, slug_real_comp)	
 			return {"status": "Successfully created virtual competition from a real one",

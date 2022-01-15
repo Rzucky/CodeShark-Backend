@@ -326,6 +326,15 @@ class Competition:
 			return True
 		return False
 
+	@staticmethod
+	def check_startable(slug):
+		start = db.query("""SELECT vrijemepoc
+							FROM natjecanje
+							WHERE slug = %s""", slug)
+		if start > datetime.now()
+			return False
+		return True
+
 class Trophy:
 	def __init__(self, trophy_id, trophy_name, trophy_img):
 		self.trophy_id = trophy_id
