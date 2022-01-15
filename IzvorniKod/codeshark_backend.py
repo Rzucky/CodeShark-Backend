@@ -418,13 +418,13 @@ def execute_task():
 	compile_timeout = cfg.get_config("compile_timeout") # seconds
 
 	# Prepare command for each language
-	if lang in ["py3"]:
+	if lang in ["py3", "py"]:
 		with open(f"{solution_file}.py3", "w") as fp:
 			fp.write(code)
 
 		command = f"sudo -u {user_account_name} {cfg.get_config('python_interpreter')} {solution_file}.py3"
 
-	elif lang in ["c++"]:
+	elif lang in ["c++", "cpp"]:
 		with open(f"{solution_file}.cpp", "w") as fp:
 			fp.write(code)
 
@@ -433,7 +433,8 @@ def execute_task():
 
 		proc = None
 		try:
-			proc = subp.run(shlex.split(command), stdout=subp.PIPE, check=True, timeout=compile_timeout)
+			#proc = subp.run(shlex.split(command), stdout=subp.PIPE, check=True, timeout=compile_timeout)
+			proc = subp.run(shlex.split(command), timeout=compile_timeout, capture_output=True)
 		except subp.CalledProcessError:
 			return {
 						"error": "compile error",
@@ -464,7 +465,7 @@ def execute_task():
 
 		proc = None
 		try:
-			proc = subp.run(shlex.split(command), stdout=subp.PIPE, check=True, timeout=compile_timeout)
+			proc = subp.run(shlex.split(command), timeout=compile_timeout, capture_output=True)
 		except subp.CalledProcessError:
 			return {
 						"error": "compile error",
@@ -561,6 +562,7 @@ def execute_task():
 				"percentage": float(passed) / total_tests,
 				"tests": results,
 			}, 200
+
 
 @app.route('/members/<username>', methods=['GET'])
 def profile(username):
