@@ -327,6 +327,7 @@ def create_task():
 	if rank not in [Rank.LEADER, Rank.ADMIN]:
 		return {"error": "Insufficient rank"}, 400
 
+	taskid = None
 	try:
 		if "test_cases" not in data or len(data["test_cases"]) < 10:
 			return {"error": "Not enough test cases"}, 400
@@ -357,7 +358,8 @@ def create_task():
 
 	except Exception as e:
 		db.rollback()
-		db.query(f"""DELETE FROM zadatak WHERE zadatakid = %s""", taskid)
+		if taskid is not None:
+			db.query(f"""DELETE FROM zadatak WHERE zadatakid = %s""", taskid)
 		return {"error": str(e)}, 500
 
 	return {"status": "Created task"}, 200
