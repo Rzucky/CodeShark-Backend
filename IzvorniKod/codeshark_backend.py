@@ -356,7 +356,7 @@ def create_task():
 	if session_id is None:
 		return {"error": "token invalid"}, 401
 
-	data = request.json
+	data = request.json or dict(request.form)
 
 	rank = db.query(f"""SELECT nivouprava
 						FROM korisnik
@@ -385,12 +385,12 @@ def create_task():
 			return {"error": "Task already exists"}, 400
 
 		for tc in data["test_cases"]:
-			db.queryc(f"""INSERT INTO testprimjer
+			db.query(f"""INSERT INTO testprimjer
 							(ulaz, izlaz, zadatakid)
 							VALUES (%s, %s, %s);""",
-						tc["input"], tc["output"], taskid,
-						autocommit=False)
+						tc["input"], tc["output"], taskid)
 			if db.error:
+				db.query(f"""DELETE FROM testprimjer WHERE zadatakid = %s""", taskid)
 				db.query(f"""DELETE FROM zadatak WHERE zadatakid = %s""", taskid)
 				return {"error": "Test case already exists"}, 400
 
@@ -399,6 +399,7 @@ def create_task():
 	except Exception as e:
 		db.rollback()
 		if taskid is not None:
+			db.query(f"""DELETE FROM testprimjer WHERE zadatakid = %s""", taskid)
 			db.query(f"""DELETE FROM zadatak WHERE zadatakid = %s""", taskid)
 		return {"error": str(e)}, 500
 
@@ -446,14 +447,13 @@ def execute_task():
 
 		proc = None
 		try:
-			#proc = subp.run(shlex.split(command), stdout=subp.PIPE, check=True, timeout=compile_timeout)
-			proc = subp.run(shlex.split(command), timeout=compile_timeout, capture_output=True)
-		except subp.CalledProcessError:
+			proc = subp.run(shlex.split(command), stdout=subp.PIPE, check=True, timeout=compile_timeout)
+		except subp.CalledProcessError as err:
 			return {
 						"error": "compile error",
-						"compiler_output": proc.stdout,
+						"compiler_output": err.stdout,
 					}, 400
-		except subp.TimeoutExpired:
+		except subp.TimeoutExpired as err:
 			return {
 						"error": "compile timeout",
 						"compiler_output": "",
@@ -463,7 +463,7 @@ def execute_task():
 		proc = None
 		try:
 			proc = subp.run(shlex.split(f"sudo -u {user_account_name} chmod 755 {solution_file}.out"), check=True)
-		except subp.CalledProcessError:
+		except subp.CalledProcessError as err:
 			return {"error": "chmod error"}, 503 # ?
 
 		# Set actual execution command
@@ -479,12 +479,12 @@ def execute_task():
 		proc = None
 		try:
 			proc = subp.run(shlex.split(command), timeout=compile_timeout, capture_output=True)
-		except subp.CalledProcessError:
+		except subp.CalledProcessError as err:
 			return {
 						"error": "compile error",
-						"compiler_output": proc.stdout,
+						"compiler_output": err.stdout,
 					}, 400
-		except subp.TimeoutExpired:
+		except subp.TimeoutExpired as err:
 			return {
 						"error": "compile timeout",
 						"compiler_output": "",
@@ -494,7 +494,7 @@ def execute_task():
 		proc = None
 		try:
 			proc = subp.run(shlex.split(f"sudo -u {user_account_name} chmod 755 {solution_file}.out"), check=True)
-		except subp.CalledProcessError:
+		except subp.CalledProcessError as err:
 			return {"error": "chmod error"}, 503 # ?
 
 		# Set actual execution command
