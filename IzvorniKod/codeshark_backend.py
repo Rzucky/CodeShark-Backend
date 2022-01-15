@@ -447,11 +447,11 @@ def execute_task():
 
 		proc = None
 		try:
-			proc = subp.run(shlex.split(command), stdout=subp.PIPE, check=True, timeout=compile_timeout)
+			proc = subp.run(shlex.split(command), stdout=subp.PIPE, stderr=subp.PIPE, check=True, timeout=compile_timeout)
 		except subp.CalledProcessError as err:
 			return {
 						"error": "compile error",
-						"compiler_output": err.stdout.decode(encoding='utf-8'),
+						"compiler_output": err.stderr.decode(encoding='utf-8').replace(solutions_dir, ""),
 					}, 400
 		except subp.TimeoutExpired as err:
 			return {
@@ -462,9 +462,9 @@ def execute_task():
 		# Set permissions
 		proc = None
 		try:
-			proc = subp.run(shlex.split(f"sudo -u {user_account_name} chmod 755 {solution_file}.out"), check=True)
+			proc = subp.run(shlex.split(f"sudo -u {user_account_name} chmod 755 {solution_file}.out"), stderr=subp.PIPE, check=True)
 		except subp.CalledProcessError as err:
-			return {"error": "chmod error"}, 503 # ?
+			return {"error": err.stderr.decode(encoding='utf-8').replace(solutions_dir, "")}, 503 # ?
 
 		# Set actual execution command
 		command = f"sudo -u {user_account_name} {solution_file}.out"
@@ -478,11 +478,11 @@ def execute_task():
 
 		proc = None
 		try:
-			proc = subp.run(shlex.split(command), timeout=compile_timeout, capture_output=True)
+			proc = subp.run(shlex.split(command), stdout=subp.PIPE, stderr=subp.PIPE, check=True, timeout=compile_timeout)
 		except subp.CalledProcessError as err:
 			return {
 						"error": "compile error",
-						"compiler_output": err.stdout.decode(encoding='utf-8'),
+						"compiler_output": err.stderr.decode(encoding='utf-8').replace(solutions_dir, ""),
 					}, 400
 		except subp.TimeoutExpired as err:
 			return {
@@ -493,9 +493,9 @@ def execute_task():
 		# Set permissions
 		proc = None
 		try:
-			proc = subp.run(shlex.split(f"sudo -u {user_account_name} chmod 755 {solution_file}.out"), check=True)
+			proc = subp.run(shlex.split(f"sudo -u {user_account_name} chmod 755 {solution_file}.out"), stderr=subp.PIPE, check=True)
 		except subp.CalledProcessError as err:
-			return {"error": "chmod error"}, 503 # ?
+			return {"error": err.stderr.decode(encoding='utf-8').replace(solutions_dir, "")}, 503 # ?
 
 		# Set actual execution command
 		command = f"sudo -u {user_account_name} {solution_file}.out"
