@@ -451,7 +451,7 @@ def execute_task():
 		except subp.CalledProcessError as err:
 			return {
 						"error": "compile error",
-						"compiler_output": err.stderr.decode(encoding='utf-8').replace(solutions_dir, ""),
+						"compiler_output": err.stderr.decode(encoding='utf-8').replace(solution_file, ""),
 					}, 400
 		except subp.TimeoutExpired as err:
 			return {
@@ -464,7 +464,7 @@ def execute_task():
 		try:
 			proc = subp.run(shlex.split(f"sudo -u {user_account_name} chmod 755 {solution_file}.out"), stderr=subp.PIPE, check=True)
 		except subp.CalledProcessError as err:
-			return {"error": err.stderr.decode(encoding='utf-8').replace(solutions_dir, "")}, 503 # ?
+			return {"error": err.stderr.decode(encoding='utf-8').replace(solution_file, "")}, 503 # ?
 
 		# Set actual execution command
 		command = f"sudo -u {user_account_name} {solution_file}.out"
@@ -482,7 +482,7 @@ def execute_task():
 		except subp.CalledProcessError as err:
 			return {
 						"error": "compile error",
-						"compiler_output": err.stderr.decode(encoding='utf-8').replace(solutions_dir, ""),
+						"compiler_output": err.stderr.decode(encoding='utf-8').replace(solution_file, ""),
 					}, 400
 		except subp.TimeoutExpired as err:
 			return {
@@ -495,7 +495,7 @@ def execute_task():
 		try:
 			proc = subp.run(shlex.split(f"sudo -u {user_account_name} chmod 755 {solution_file}.out"), stderr=subp.PIPE, check=True)
 		except subp.CalledProcessError as err:
-			return {"error": err.stderr.decode(encoding='utf-8').replace(solutions_dir, "")}, 503 # ?
+			return {"error": err.stderr.decode(encoding='utf-8').replace(solution_file, "")}, 503 # ?
 
 		# Set actual execution command
 		command = f"sudo -u {user_account_name} {solution_file}.out"
