@@ -362,7 +362,7 @@ def create_task():
 			db.query(f"""DELETE FROM zadatak WHERE zadatakid = %s""", taskid)
 		return {"error": str(e)}, 500
 
-	return {"status": "Created task"}, 200
+	return {"slug": slugify(data["task_name"])}, 200
 
 @app.route('/execute_task', methods=['POST'])
 def execute_task():

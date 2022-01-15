@@ -266,7 +266,7 @@ class Competition:
 	@staticmethod
 	def get_tasks_in_comp(comp_slug):
 		task_slug_list = []
-		for task in check(db.query("""SELECT zadatak.slug 
+		for task in check(db.query("""SELECT zadatak.slug, natjecanje.slug
 								FROM zadatak
 								JOIN natjecanje
 									USING(natjecanjeid) 
