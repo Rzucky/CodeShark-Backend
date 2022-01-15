@@ -321,8 +321,19 @@ class Competition:
 	
 
 	@staticmethod
+	def is_participant(username, slug):
+		if db.query("""SELECT * FROM sudjelujena 
+			JOIN korisnik USING(korisnikid) 
+			JOIN natjecanje USING(natjecanjeid) 
+			WHERE korisnickoime = %s 
+			AND slug = %s""", username, slug):
+			return True
+		return False
+
+	@staticmethod
 	def check_if_comp_slug_exists(slug):
-		if db.query("""SELECT * FROM natjecanje WHERE slug = %s""", slug):
+		if db.query("""SELECT * FROM natjecanje 
+					WHERE slug = %s""", slug):
 			return True
 		return False
 
@@ -334,6 +345,19 @@ class Competition:
 		if start > datetime.now():
 			return False
 		return True
+	
+	@staticmethod
+	def has_finished(slug):
+		end = db.query("""SELECT vrijemekraj
+							FROM natjecanje
+							WHERE slug = %s""", slug)
+		if end > datetime.now():
+			return False
+		return True
+	
+	# @staticmethod
+	# def leaderboards(slug):
+	#	pass
 
 class Trophy:
 	def __init__(self, trophy_id, trophy_name, trophy_img):
