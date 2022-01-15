@@ -319,6 +319,13 @@ class Competition:
 						comp_id, task_slug.strip())
 		return comp_slug, None
 	
+	@staticmethod
+	def end(slug):
+		if db.query("""UPDATE natjecanje 
+					SET vrijemekraj = NOW()
+					WHERE slug = %s RETURNING *""", slug):
+			return True
+		return False
 
 	@staticmethod
 	def is_participant(username, slug):
@@ -410,6 +417,14 @@ class Trophy:
 	def generate_trophy_filename(uname):
 		hsh = User.hash_pfp_filename(f"{uname}+{time.time()}")
 		return f"trophy_{hsh}"
+	
+	@staticmethod
+	def add(username, trophy_id):
+		db.query("""INSERT INTO jeosvojio
+					VALUES(
+						(SELECT korisnikid FROM korisnik
+							WHERE korisnickoime = %s)
+						,%s)""", username, trophy_id)
 
 class Task:
 	def __init__(self, task_id, task_name, difficulty, max_exe_time, task_text, private, slug, author_id, comp_id):

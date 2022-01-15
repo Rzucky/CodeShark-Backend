@@ -175,12 +175,37 @@ def competition(competition_slug):
 
 		return {"error": "Competition has ended, start a virtual one"}, 400
 
+@app.route('/end_competition/<competition_slug>', methods=['GET'])
+def end_comp(competition_slug):
+	session_id = request.headers.get('session')
+	if Session.check_expired(session_id):
+		return {"error": "token expired"}, 419
+	session_id, username = Session.verify(session_id)
+	if session_id is None:
+		return {"error": "token invalid"}, 401
+
+	comp = Competition.get_competition(competition_slug)[0]
+	user = User.get_user(username)
+	author_id = db.query("""SELECT korisnikid 
+					FROM korisnik WHERE korisnickoime = %s""", username) 
+
+	if user.rank not in [Rank.LEADER, Rank.ADMIN] or comp.author_id != author_id:
+		return {"error": "Insufficient rank or not an autor"}, 400
+
+	leaderboard_list = Competition.leaderboards(competition_slug)
+	for i in range(min(len(leaderboard_list), 3)):
+		Trophy.add(leaderboard_list[i]["username"], comp.trophy_id)
+
+	if Competition.end(competition_slug):
+		return{"status": "Successfully ended competition"}, 200
+	return{"error": "Couldn't end competition"}, 400
+
 @app.route('/users', methods=['GET'])
 def users():
 	user_list = User.get_users_asc()
 	return {"users": user_list}, 200
 
-@app.route('/virtual_competitions', methods=['GET'])
+@app.route('/virtual_competitions', methods=['DELETE'])
 def virtual_competitions():
 	session_id = request.headers.get('session')
 	if Session.check_expired(session_id):
@@ -273,7 +298,7 @@ def virtual_competition(virt_id=None, slug_real_comp=None, ended_virt_id=None):
 			}, 200
 		return {"error": error}, 400
 
-@app.route('/delete_virtual/<virt_id>', methods=['GET'])
+@app.route('/delete_virtual/<virt_id>', methods=['DELETE'])
 def delete(virt_id):
 	session_id = request.headers.get('session')
 	if Session.check_expired(session_id):
@@ -282,8 +307,8 @@ def delete(virt_id):
 	if session_id is None:
 		return {"error": "token invalid"}, 401
 	if VirtualCompetition.delete(virt_id, username):
-		return{"status": "Successfully deleted virtual competition"}
-	return{"error": "Couldn't delete virtual competition"}
+		return{"status": "Successfully deleted virtual competition"}, 200
+	return{"error": "Couldn't delete virtual competition"}, 400
 
 @app.route('/avatar/<username>', methods=['GET'])
 def avatar(username):
