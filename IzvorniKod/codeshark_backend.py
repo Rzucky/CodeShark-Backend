@@ -203,17 +203,18 @@ def virtual_competitions():
 	return {"virtual_competitions": virt_list}, 200
 
 @app.route('/virtual_competition/<slug_real_comp>', methods=['POST'])
+@app.route('/virtual_competition/<ended_virt_id>/leaderboards', methods=['GET'])
 @app.route('/virtual_competition/<virt_id>', methods=['GET'])
 @app.route('/virtual_competition', methods=['POST'])
-def virtual_competition(virt_id=None, slug_real_comp=None):
-	if request.method == 'POST':
-		session_id = request.headers.get('session')
-		if Session.check_expired(session_id):
-			return {"error": "token expired"}, 419
-		session_id, username = Session.verify(session_id)
-		if session_id is None:
-			return {"error": "token invalid"}, 401
+def virtual_competition(virt_id=None, slug_real_comp=None, ended_virt_id=None):
+	session_id = request.headers.get('session')
+	if Session.check_expired(session_id):
+		return {"error": "token expired"}, 419
+	session_id, username = Session.verify(session_id)
+	if session_id is None:
+		return {"error": "token invalid"}, 401
 
+	if request.method == 'POST':
 		# creates a virtual competition from a real one
 		if slug_real_comp is not None:
 			if not Competition.check_if_comp_slug_exists(slug_real_comp):
@@ -238,6 +239,18 @@ def virtual_competition(virt_id=None, slug_real_comp=None):
 					}, 201
 
 	elif request.method == 'GET':
+		# competition has ended
+		if ended_virt_id is not None:
+			# load an already created competition
+			virt, error = VirtualCompetition.get_virtual_competition(ended_virt_id)
+			if virt.comp_id is not None:
+				# checking if real
+				virt.tasks, name = VirtualCompetition.get_comp_data_for_virtual_real_comp(virt.comp_id)
+				if name is None:
+					return {"error": 'Virtual competition id is not valid'}, 400
+			leaderboards = VirtualCompetition.leaderboards_with_virtual(username, slugify(name))
+			return {"leaderboards": leaderboards}, 200
+
 		# load an already created competition
 		virt, error = VirtualCompetition.get_virtual_competition(virt_id)
 		if virt is not None:
