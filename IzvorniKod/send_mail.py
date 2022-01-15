@@ -39,7 +39,6 @@ def send_verification_mail(name, last_name, email, token):
 
 # sending upgrade mails to admin mail to change a competitor to leader
 def send_upgrade_mail(user):
-
 	message = f"""<h3> User {user.name} {user.last_name} ({user.username})</h3>
 				<h4> wants to be a competition leader </h4></br>
 				<a href = "{rank_upgrade_url + user.username}">

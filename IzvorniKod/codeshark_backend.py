@@ -205,7 +205,7 @@ def users():
 	user_list = User.get_users_asc()
 	return {"users": user_list}, 200
 
-@app.route('/virtual_competitions', methods=['DELETE'])
+@app.route('/virtual_competitions', methods=['GET'])
 def virtual_competitions():
 	session_id = request.headers.get('session')
 	if Session.check_expired(session_id):
@@ -894,12 +894,12 @@ def register():
 	db.query("""INSERT INTO korisnik
 					(korisnickoime, slikaprofila, lozinka, ime, prezime, email, titula, nivouprava, token, tokengeneriran)
 				VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-				user.username, user.pfp_url, user.password, user.name, user.last_name, user.email, user.title, user.rank, token, current_time)
+				user.username, user.pfp_url, user.password, user.name, user.last_name, user.email, user.title, 1, token, current_time)
 
 	# Sending verification mail
 	if not debug_mail:
 		send_mail.send_verification_mail(user.name, user.last_name, user.email, token)
-		if user.rank == 2:
+		if int(user.rank) == 2:
 			send_mail.send_upgrade_mail(user)
 
 	if file_ext is None:
