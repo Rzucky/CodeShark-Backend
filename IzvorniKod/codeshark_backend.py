@@ -196,9 +196,7 @@ def end_comp(competition_slug):
 	for i in range(min(len(leaderboard_list), 3)):
 		Trophy.add(leaderboard_list[i]["username"], comp.trophy_id)
 
-	if Competition.end(competition_slug):
-		return{"status": "Successfully ended competition"}, 200
-	return{"error": "Couldn't end competition"}, 400
+	return{"status": "Successfully ended competition"}, 200
 
 @app.route('/users', methods=['GET'])
 def users():
