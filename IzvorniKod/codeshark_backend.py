@@ -189,7 +189,7 @@ def end_comp(competition_slug):
 	author_id = db.query("""SELECT korisnikid 
 					FROM korisnik WHERE korisnickoime = %s""", username) 
 
-	if user.rank not in [Rank.LEADER, Rank.ADMIN] or comp.author_id != author_id:
+	if user.rank not in [Rank.LEADER, Rank.ADMIN] and comp.author_id != author_id:
 		return {"error": "Insufficient rank or not an autor"}, 400
 
 	leaderboard_list = Competition.leaderboards(competition_slug)
