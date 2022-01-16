@@ -320,14 +320,6 @@ class Competition:
 		return comp_slug, None
 	
 	@staticmethod
-	def end(slug):
-		if db.query("""UPDATE natjecanje 
-					SET vrijemekraj = NOW()
-					WHERE slug = %s RETURNING *""", slug):
-			return True
-		return False
-
-	@staticmethod
 	def is_participant(username, slug):
 		if db.query("""SELECT * FROM sudjelujena 
 			JOIN korisnik USING(korisnikid) 
